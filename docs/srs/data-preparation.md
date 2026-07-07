@@ -4,7 +4,7 @@
 |---|---|
 | **Stage** | 1 of 3 — Data Preparation |
 | **Status** | Draft |
-| **Source** | `LLM Coding Challenge for AI Eng.pdf`, §2 "Data Preparation"; `fine_tune_llm_credit_rules.json`; `.ipynb_checkpoints/data_card-checkpoint.json` (prior exploration) |
+| **Source** | Project brief, "Data Preparation" task; `fine_tune_llm_credit_rules.json`; `.ipynb_checkpoints/data_card-checkpoint.json` (prior exploration) |
 | **Consumes** | `fine_tune_llm_credit_rules.json` |
 | **Produces** | Tokenized train/val/test datasets + `data_card.json` (contract consumed by the Training stage, see [training.md](./training.md)) |
 
@@ -108,7 +108,7 @@ Out of scope: model architecture, training loop, and evaluation metrics (see
 | NFR-DP-1 | **Reproducibility** — Given the same ruleset and a fixed random seed, dataset generation SHALL be deterministic (identical examples, splits, and ordering across runs), and SHALL do so via a local RNG instance without mutating global `random` module state (A3.6). |
 | NFR-DP-2 | **Extensibility** — Adding, removing, or modifying a rule in the JSON ruleset SHALL NOT require code changes to the generation pipeline (rule evaluation must be data-driven off the `operator`/`field`/`value` schema, not per-rule-id special-cased logic). |
 | NFR-DP-3 | **Label coverage** — The generated train and validation sets SHALL each contain a non-trivial proportion (minimum threshold, e.g. ≥5%) of all three decision labels, to avoid degenerate single-class datasets. |
-| NFR-DP-4 | **Documented rationale** — Preprocessing choices (tokenization strategy, special tokens, split ratios, edge-case test set design) SHALL be documented alongside the code, per the challenge brief's requirement to "discuss your rationale." |
+| NFR-DP-4 | **Documented rationale** — Preprocessing choices (tokenization strategy, special tokens, split ratios, edge-case test set design) SHALL be documented alongside the code, per the project brief's requirement to "discuss your rationale." |
 | NFR-DP-5 | **Performance** — Full dataset generation and tokenization SHALL complete on a single CPU without a GPU dependency, in bounded time proportional to configured example count. |
 
 ## 6. Interface Requirements

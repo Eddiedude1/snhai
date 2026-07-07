@@ -4,14 +4,14 @@
 |---|---|
 | **Stage** | 3 of 3 — Evaluation and Analysis |
 | **Status** | Draft |
-| **Source** | `LLM Coding Challenge for AI Eng.pdf`, §2 "Evaluation and Analysis" |
+| **Source** | Project brief, "Evaluation and Analysis" task |
 | **Consumes** | Model + tokenizer directory + training log (see [training.md](./training.md), IR-TR-2); validation/test dataset + `data_card.json` (see [data-preparation.md](./data-preparation.md), IR-DP-2/IR-DP-3) |
-| **Produces** | An evaluation report (metrics + sample dialogues) and a written strengths/weaknesses analysis — the final pipeline deliverable, feeding the challenge's optional brief report |
+| **Produces** | An evaluation report (metrics + sample dialogues) and a written strengths/weaknesses analysis — the final pipeline deliverable, feeding the project's optional brief report |
 
 ## 1. Purpose & Scope
 
 Defines the requirements for evaluating the fine-tuned model's decision-making performance on
-the validation set and for generating/analyzing sample dialogues, per the challenge brief's
+the validation set and for generating/analyzing sample dialogues, per the project brief's
 "Evaluation and Analysis" task.
 
 In scope: loading the fine-tuned model, generating decision+rationale completions, scoring them
@@ -93,7 +93,7 @@ labels/examples were produced (see [data-preparation.md](./data-preparation.md))
 | ID | Requirement |
 |---|---|
 | NFR-EV-1 | **Reproducibility** — sample-dialogue selection and any stochastic decoding SHALL be seeded via a local RNG (A3.5) so repeated runs with the same seed/config select identical samples. |
-| NFR-EV-2 | **Documented analysis** — evaluation results SHALL be accompanied by a written strengths/weaknesses analysis referencing specific metrics and sample dialogues, per the challenge brief. |
+| NFR-EV-2 | **Documented analysis** — evaluation results SHALL be accompanied by a written strengths/weaknesses analysis referencing specific metrics and sample dialogues, per the project brief. |
 | NFR-EV-3 | **Extensibility** — metrics and rule-citation-accuracy computation SHALL be data-driven off the ruleset/data card, not hard-coded to the specific 10 rules currently in `fine_tune_llm_credit_rules.json` (mirrors NFR-DP-2). |
 | NFR-EV-4 | **Bounded orchestration overhead** — metric aggregation and report generation (excluding actual model inference cost) SHALL scale linearly with dataset size, not reprocess it more than a small constant number of passes. |
 | NFR-EV-5 | **Robustness** — unparseable model outputs SHALL NOT crash the evaluation run; they SHALL be counted and reported as a distinct category (ties to FR-EV-4). |
@@ -104,7 +104,7 @@ labels/examples were produced (see [data-preparation.md](./data-preparation.md))
 |---|---|
 | IR-EV-1 | **Input: model** — the model+tokenizer directory and training log produced per Training's IR-TR-2, or (A3.1/A3.7) a raw base-model checkpoint identifier for a pre-fine-tuning baseline report. |
 | IR-EV-2 | **Input: data** — the validation/test dataset artifact and `data_card.json` produced per Data Preparation's IR-DP-2/IR-DP-3, used for prompts, ground-truth labels, and special-token parsing. |
-| IR-EV-3 | **Output** — an evaluation report artifact (metrics + sample dialogues) in a durable, inspectable format (e.g. JSON/markdown), suitable for inclusion in the challenge's optional brief report. |
+| IR-EV-3 | **Output** — an evaluation report artifact (metrics + sample dialogues) in a durable, inspectable format (e.g. JSON/markdown), suitable for inclusion in the project's optional brief report. |
 | IR-EV-4 | **Configuration** — the CLI SHALL accept an optional `--config` path to the shared namespaced JSON file (default `config.json`); it reads only this stage's `evaluation` section (via `config.py:load_config`) to supply CLI defaults, which explicit CLI flags then override (A3.6; mirrors data-preparation.md IR-DP-4). |
 
 ## 7. Open Questions / Risks

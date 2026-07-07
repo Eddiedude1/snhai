@@ -4,7 +4,7 @@
 |---|---|
 | **Stage** | 2 of 3 — Model Selection and Training |
 | **Status** | Draft |
-| **Source** | `LLM Coding Challenge for AI Eng.pdf`, §2 "Model Selection and Training" |
+| **Source** | Project brief, "Model Selection and Training" task |
 | **Consumes** | Tokenized train/val datasets + `data_card.json` (see [data-preparation.md](./data-preparation.md), IR-DP-2/IR-DP-3) |
 | **Produces** | Fine-tuned model + tokenizer directory + training log/metrics (contract consumed by the Evaluation stage, see [evaluation.md](./evaluation.md)) |
 
@@ -93,7 +93,7 @@ Out of scope: how training examples are generated or tokenized (see
 | NFR-TR-1 | **Reproducibility** — training SHALL be seeded (data ordering/shuffling, any stochastic init) via a local RNG instance (A3.5) so that, given the same seed/config/data, results are repeatable modulo hardware/floating-point nondeterminism, without mutating global `random` module state. |
 | NFR-TR-2 | **Resource boundedness** — the chosen base model and configuration SHALL be able to complete at least one full epoch over the prepared dataset on commodity hardware (single consumer GPU, or CPU as fallback) in bounded wall-clock time; parameter-efficient fine-tuning (e.g. LoRA) is an acceptable way to satisfy this. The training loop SHALL execute on an available GPU device when present, falling back to CPU only when no GPU is detected — silent CPU execution alongside an unused, allocated GPU is not acceptable. |
 | NFR-TR-3 | **Fault tolerance** — an interrupted training run SHALL be resumable from the last checkpoint with no loss beyond the interval since that checkpoint (ties to FR-TR-6/FR-TR-7). |
-| NFR-TR-4 | **Documented rationale** — the choice of base model, optimizer, loss function, and hyperparameters SHALL be documented with justification, per the challenge brief. |
+| NFR-TR-4 | **Documented rationale** — the choice of base model, optimizer, loss function, and hyperparameters SHALL be documented with justification, per the project brief. |
 | NFR-TR-5 | **Extensibility** — swapping the base model identifier or optimizer type SHALL NOT require changes to the core training-loop logic (config-driven, not hard-coded per-model branching). |
 
 ## 6. Interface Requirements

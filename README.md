@@ -3,7 +3,7 @@
 An end-to-end pipeline that fine-tunes a Hugging Face LLM to adjudicate personal loan
 applications (`APPROVE` / `REJECT` / `FLAG_REVIEW`) and explain its decision, using the rule set
 in `fine_tune_llm_credit_rules.json` as the source of truth for what the model should learn to
-apply. Built for the challenge described in `LLM Coding Challenge for AI Eng.pdf`.
+apply.
 
 The pipeline has three stages, each with its own spec, test suite, and script:
 

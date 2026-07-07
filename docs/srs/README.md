@@ -1,8 +1,8 @@
 # Software Requirements Specifications
 
-Lean-IEEE-style SRS documents for the three stages of the SNH-AI LLM coding challenge (see
-`../../LLM Coding Challenge for AI Eng.pdf`). Each stage is worked spec-first: write the SRS,
-then a failing pytest suite traced to its requirement IDs, then (later) the implementation.
+Lean-IEEE-style SRS documents for the three stages of this LLM fine-tuning pipeline. Each stage
+is worked spec-first: write the SRS, then a failing pytest suite traced to its requirement IDs,
+then (later) the implementation.
 
 | Stage | Spec | Tests | Status |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Evaluation. See each spec's header table for its exact Consumes/Produces contrac
   Scope, Definitions, Assumptions & Constraints, Functional Requirements, Non-Functional
   Requirements, Interface Requirements, and Open Questions/Risks. Personas, use-cases, and
   full documentation-requirements sections are omitted as overhead not worth it for a solo
-  take-home exercise.
+  project.
 - **Requirement IDs** — `FR-<STAGE>-#` (functional), `NFR-<STAGE>-#` (non-functional),
   `IR-<STAGE>-#` (interface), where `<STAGE>` is `DP`, `TR`, or `EV`. Assumptions are numbered
   `A3.#` within each spec's §3.

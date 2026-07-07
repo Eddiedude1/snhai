@@ -4,14 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-This repo is the implementation of the "SNH-AI Technical Coding Challenge: Building and
-Training a Large Language Model" (see `LLM Coding Challenge for AI Eng.pdf`). The goal is to
-build an end-to-end pipeline that fine-tunes a Hugging Face LLM to adjudicate personal loan
-applications (APPROVE / REJECT / FLAG_REVIEW) and explain its decision, using the rule set in
+This repo implements an end-to-end pipeline for building and training a Large Language Model.
+The goal is to fine-tune a Hugging Face LLM to adjudicate personal loan applications
+(APPROVE / REJECT / FLAG_REVIEW) and explain its decision, using the rule set in
 `fine_tune_llm_credit_rules.json` as the source of truth for what the model should learn to
 apply.
 
-Expected deliverables per the challenge brief:
+Target deliverables:
 - Data prep script(s): turn the credit rules into training examples (tokenization, special
   tokens, padding/truncation, train/val/test split), with rationale documented.
 - Training script: fine-tune a chosen pretrained HF model with a full PyTorch/TensorFlow loop
@@ -78,8 +77,8 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   text. `data/` was regenerated accordingly (splits/label distribution unchanged, since only
   the tokenizer changed, not profile generation; `data_card.json`'s `tokenizer_id` is now
   `Qwen/Qwen2.5-0.5B-Instruct` rather than `whitespace`) and committed as the reviewable
-  deliverable — this is a technical-assessment repo, and the data is small/synthetic/exactly
-  reproducible from the seed (NFR-DP-1, verified by re-running and diffing both before and
+  deliverable — the data is small/synthetic/exactly reproducible from the seed (NFR-DP-1,
+  verified by re-running and diffing both before and
   after this fix). `transformers` moved from a dev-only to a main runtime dependency as a
   result (`main()`'s real path needs it; the unit test suite still doesn't, since it injects
   its own doubles and never imports `transformers`).

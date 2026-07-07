@@ -54,7 +54,7 @@ uv run ruff check .                     # lint
 uv run ruff format --check .            # format check
 ```
 
-Runtime dependencies: `pandas`, `seaborn`, `ipykernel`, `transformers`. Dev dependencies:
+Runtime dependencies: `ipykernel`, `transformers`. Dev dependencies:
 `jupyter`, `pytest`, `ruff`. **None of the three stages' unit test suites require `torch`** —
 they're tested against fake model/tokenizer/optimizer doubles that duck-type the relevant
 Hugging Face/PyTorch interfaces, so `uv sync && uv run pytest` works on any machine, including
@@ -87,8 +87,8 @@ Google Colab against a free-tier T4 GPU:
 ```bash
 # In a Colab notebook, after cloning this repo and cd'ing into it:
 pip install -q -e . --no-deps && pip install -q "transformers>=5.13.0"
-# --no-deps avoids upgrading Colab's own pinned pandas/ipykernel, which this repo's
-# pyproject.toml doesn't actually need at runtime for these two stages.
+# --no-deps avoids upgrading Colab's own pinned ipykernel, which this repo's
+# pyproject.toml declares but neither of these two stages actually imports at runtime.
 
 python -m snhai.training      # writes runs/training/final_model + runs/training/metrics.log
 python -m snhai.evaluation    # writes runs/evaluation/eval_report.json

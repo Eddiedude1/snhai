@@ -293,13 +293,18 @@ uv run ruff check .                     # lint
 uv run ruff format .                    # auto-format (check with `--check` first)
 ```
 
-Runtime dependencies are `pandas`, `seaborn`, `ipykernel`, `transformers` (needed by Data
+Runtime dependencies are `ipykernel`, `transformers` (`transformers` is needed by Data
 Preparation's `main()` real-tokenizer path — see the Data Preparation note above — and by
 Training's/Evaluation's default model/tokenizer loaders; none of the three stages' unit test
 suites import it, since all of them inject their own fake doubles); dev dependencies are
-`jupyter`, `pytest`, `ruff`. Actually running Training/Evaluation's default model-loading paths
-will additionally require `torch`, which isn't installable on this machine (see the Training
-status note above) — that's expected to happen in a separate GPU-enabled environment (Colab).
+`jupyter`, `pytest`, `ruff`. `pandas` and `seaborn` were declared as runtime dependencies from
+the very first commit but never actually imported anywhere in `src/`/`tests/`/`scripts/` —
+leftover from pre-spec-first exploratory notebook work (see the `.ipynb_checkpoints` data-card
+note under Key data files) — and were removed, along with the 9 transitive packages
+(`matplotlib`, `pillow`, etc.) they alone were pulling in. Actually running Training/Evaluation's
+default model-loading paths will additionally require `torch`, which isn't installable on this
+machine (see the Training status note above) — that's expected to happen in a separate
+GPU-enabled environment (Colab).
 
 ## Key data files
 

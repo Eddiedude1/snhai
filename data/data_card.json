@@ -1,7 +1,7 @@
 {
   "n_rules": 10,
   "max_seq_len": 256,
-  "tokenizer_id": "whitespace",
+  "tokenizer_id": "Qwen/Qwen2.5-0.5B-Instruct",
   "special_tokens": {
     "bos_token": "<|begin|>",
     "eos_token": "<|end|>",

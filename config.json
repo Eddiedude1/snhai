@@ -14,7 +14,8 @@
       "train": 340,
       "val": 60,
       "test": 30
-    }
+    },
+    "tokenizer_model_id": "Qwen/Qwen2.5-0.5B-Instruct"
   },
   "training": {
     "model_id": "Qwen/Qwen2.5-0.5B-Instruct",

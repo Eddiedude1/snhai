@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T18:10:12.991321+00:00",
+  "generated_at": "2026-07-07T18:32:04.902376+00:00",
   "config_path": "config.json",
   "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
   "seed": 42,
@@ -101,6 +101,6 @@
   },
   "notes": {
     "whitespace_naive_proxy": "Naive whitespace .split() token count. render_example's facts line has no internal whitespace within a fact (e.g. 'applicant.credit_score=792'), so this severely undercounts real subword tokenization. Kept only as a contrast data point -- do not use it to size max_seq_len.",
-    "tokenizer_id_in_data_card": "data_preparation.main() still uses WhitespaceTokenizer to produce the committed dataset's input_ids (A3.5); real_model_tokenizer above is used only for this calibration measurement, not for producing the dataset artifact."
+    "tokenizer_id_in_data_card": "When data_preparation's config sets tokenizer_model_id (as config.json now does), main() uses this same real-tokenizer path (load_real_tokenizer) to produce the committed dataset's input_ids, not just for this calibration measurement -- required because Training's batching feeds input_ids straight into the model without re-tokenizing. WhitespaceTokenizer remains the fallback default (A3.5) when tokenizer_model_id is unset."
   }
 }

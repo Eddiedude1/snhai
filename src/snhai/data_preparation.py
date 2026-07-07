@@ -24,6 +24,10 @@ Rationale (NFR-DP-4):
   is part of the vocabulary but only appears at tokenization time, not in rendered text.
 - The tokenizer is a constructor parameter everywhere (A3.5), so this stage never assumes a
   specific base model; `WhitespaceTokenizer` below is only the default/local test double.
+  `main()` opts into the real base model's tokenizer instead (`load_real_tokenizer`) when
+  `--tokenizer-model-id` / config's `tokenizer_model_id` is set — required for the produced
+  `input_ids` to be real-vocabulary-aligned, since Training's batching feeds them straight
+  into the model without re-tokenizing (see docs/srs/data-preparation.md A3.5).
 - CLI defaults are layered: built-in constants below < this stage's section of `config.json`
   (via the shared `config.load_config`) < explicit CLI flags (A3.8, IR-DP-4). This keeps the
   script runnable with zero setup while still letting a run's full configuration live in one
@@ -475,6 +479,33 @@ class WhitespaceTokenizer:
         return [self._register(tok) for tok in text.split()]
 
 
+class _RealTokenizerAdapter:
+    """Wraps a real HF tokenizer to match WhitespaceTokenizer's .encode/.pad_token_id
+    contract, so it's a drop-in injected tokenizer for tokenize_example (A3.5)."""
+
+    def __init__(self, hf_tokenizer):
+        self._tokenizer = hf_tokenizer
+        self.pad_token_id = hf_tokenizer.pad_token_id
+
+    def encode(self, text: str) -> list[int]:
+        return self._tokenizer.encode(text, add_special_tokens=False)
+
+
+def load_real_tokenizer(model_id: str) -> _RealTokenizerAdapter:
+    """Loads `model_id`'s real tokenizer and registers this pipeline's special tokens on
+    it, mirroring training.py:align_tokenizer_and_model's tokenizer.add_special_tokens(...)
+    call so measured/produced token ids reflect the vocabulary that will actually exist at
+    training time. Training's batching feeds Data Preparation's `input_ids` straight into
+    the model without re-tokenizing (see training.py's `_batches`), so those ids must
+    already be real-tokenizer-aligned -- this is what lets `main()` opt into that instead of
+    the WhitespaceTokenizer default (A3.5) once a base model has been chosen."""
+    from transformers import AutoTokenizer
+
+    hf_tokenizer = AutoTokenizer.from_pretrained(model_id)
+    hf_tokenizer.add_special_tokens(SPECIAL_TOKENS)
+    return _RealTokenizerAdapter(hf_tokenizer)
+
+
 # --- FR-DP-9: non-overlapping train/val/test split -------------------------------------------
 
 
@@ -589,6 +620,11 @@ def main(argv: list[str] | None = None) -> None:
         type=int,
         default=stage_config.get("max_seq_len", DEFAULT_MAX_SEQ_LEN),
     )
+    parser.add_argument(
+        "--tokenizer-model-id",
+        type=str,
+        default=stage_config.get("tokenizer_model_id"),
+    )
     args = parser.parse_args(remaining_argv)
 
     target_label_ratios = stage_config.get("target_label_ratios", DEFAULT_LABEL_RATIOS)
@@ -599,10 +635,15 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     ruleset = load_ruleset(args.rules_path)
-    tokenizer = WhitespaceTokenizer(
-        special_tokens=list(SPECIAL_TOKENS.values())[:3]
-        + SPECIAL_TOKENS["additional_special_tokens"]
-    )
+    if args.tokenizer_model_id:
+        tokenizer = load_real_tokenizer(args.tokenizer_model_id)
+        tokenizer_id = args.tokenizer_model_id
+    else:
+        tokenizer = WhitespaceTokenizer(
+            special_tokens=list(SPECIAL_TOKENS.values())[:3]
+            + SPECIAL_TOKENS["additional_special_tokens"]
+        )
+        tokenizer_id = "whitespace"
 
     profiles = generate_balanced_profiles(
         ruleset,
@@ -626,7 +667,7 @@ def main(argv: list[str] | None = None) -> None:
     card = build_data_card(
         n_rules=len(_rules_of(ruleset)),
         max_seq_len=args.max_seq_len,
-        tokenizer_id="whitespace",
+        tokenizer_id=tokenizer_id,
         special_tokens=SPECIAL_TOKENS,
         splits={"train": len(train), "val": len(val), "test": len(test)},
         decision_label_distribution={

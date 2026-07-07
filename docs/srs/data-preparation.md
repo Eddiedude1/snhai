@@ -54,7 +54,17 @@ Out of scope: model architecture, training loop, and evaluation metrics (see
   `split_counts["test"]`.
 - A3.5: The tokenizer is injected as a parameter (any HF `PreTrainedTokenizer`-compatible
   object); a trivial whitespace tokenizer is the default/test double so this stage's tests
-  don't require downloading a real model checkpoint (see §7, OQ-2).
+  don't require downloading a real model checkpoint (see §7, OQ-2). `main()`'s CLI defaults
+  to this whitespace fallback too, but opts into the real base model's tokenizer
+  (`load_real_tokenizer`) instead when `tokenizer_model_id` is configured — required, not
+  optional, once real training is intended: Training's SRS (`training.md`) has the batching
+  logic feed Data Preparation's `input_ids` directly into the model as token ids, without
+  re-tokenizing, so those ids must already be aligned to the real base model's vocabulary.
+  `config.json`'s `data_preparation.tokenizer_model_id` is set to the same
+  `Qwen/Qwen2.5-0.5B-Instruct` chosen in Training's A3.2, and the committed `data/` dataset
+  was generated with it (verified: `tokenizer.decode` of a generated example's `input_ids`
+  round-trips to the original rendered text — see `docs/analysis/token_length_measurement.json`
+  and OQ-1 below for the token-length numbers measured against this same real tokenizer).
 - A3.6: Every seeded function (`generate_applicant_profiles`, `generate_edge_case_profiles`,
   `split_dataset`) SHALL derive randomness from a local `random.Random(seed)` instance created
   within the call, and SHALL NOT read or mutate the global `random` module's state. This keeps
@@ -152,7 +162,9 @@ Out of scope: model architecture, training loop, and evaluation metrics (see
     documented rather than silently misleading.
 - OQ-2 (resolved — A3.5): Tokenizer is injected rather than hard-coded, avoiding coupling
   this stage to Training's base-model decision; a whitespace tokenizer is the default/test
-  double.
+  double. Once a base model was chosen (Training's A3.2), `main()` was wired to opt into that
+  model's real tokenizer via `tokenizer_model_id` — see A3.5's fuller note on why this is
+  required, not just an enhancement, for `input_ids` that Training/Evaluation can actually use.
 - OQ-3 (open — A3.7): Independent per-rule sampling naturally yields a skewed decision-label
   distribution (~75% REJECT / ~15% FLAG_REVIEW / ~12% APPROVE with the real ruleset, since
   REJECT fires if *any* of 8 REJECT-severity rules fails, while APPROVE requires all 10 to

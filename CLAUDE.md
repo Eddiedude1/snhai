@@ -40,33 +40,49 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   now uses. Edge-case generation (`generate_edge_case_profiles`) perturbs 2-3
   numeric-threshold rules at once from an all-pass baseline, including exact-threshold cases
   (FR-DP-8). `data_preparation.py` also exposes a `main()` CLI that writes
-  `train.jsonl`/`val.jsonl`/`test.jsonl` and `data_card.json` to `--output-dir` using the
-  default `WhitespaceTokenizer` (not exercised by the unit tests, which inject their own
-  tokenizer double per A3.5). Configuration is externalized to a single namespaced
-  `config.json` (sections: `data_preparation`, `training`, `evaluation`) loaded via the shared
-  `src/snhai/config.py:load_config(path, stage)` utility (`tests/test_config.py`, 3 tests); precedence is
-  built-in script defaults < `config.json`'s stage section < explicit CLI flags (A3.8,
-  IR-DP-4). The `training` and `evaluation` sections are now populated. OQ-1 (§7 of the SRS,
-  `max_seq_len`/split-count calibration) is now empirically closed rather than just
-  design-resolved: `scripts/measure_token_lengths.py` (a one-off analysis script outside
-  `src/snhai/`, using a dev-only `transformers` dependency so the installable package and its
-  test suite stay torch/transformers-free) renders the real profile pool with `render_example`
-  and tokenizes it with the actual selected base model's tokenizer
-  (`Qwen/Qwen2.5-0.5B-Instruct`, per Training's A3.2), not just the pipeline's default
-  `WhitespaceTokenizer` stand-in (which turned out to badly undercount — render_example's
-  `field=value` facts have no internal whitespace, so naive `.split()` treats each fact as one
-  token). Measured result (`docs/analysis/token_length_measurement.json`): real max token
-  length is 177 (train/val pool) / 142 (edge-case pool), comfortably under the configured
-  `max_seq_len=256` with zero truncation, so 256 was kept unchanged. The script also surfaced
-  that `config.json`'s `split_counts["test"]=30` is dead configuration — the actual test file
-  is sized by `generate_edge_case_profiles` (14 profiles for the current ruleset), not by
+  `train.jsonl`/`val.jsonl`/`test.jsonl` and `data_card.json` to `--output-dir`, defaulting to
+  `WhitespaceTokenizer` but opting into the real base model's tokenizer
+  (`load_real_tokenizer`, lazy `transformers` import mirroring Training's/Evaluation's
+  pattern) whenever `tokenizer_model_id` is configured (not exercised by the unit tests, which
+  inject their own tokenizer double per A3.5). Configuration is externalized to a single
+  namespaced `config.json` (sections: `data_preparation`, `training`, `evaluation`) loaded via
+  the shared `src/snhai/config.py:load_config(path, stage)` utility (`tests/test_config.py`, 3
+  tests); precedence is built-in script defaults < `config.json`'s stage section < explicit CLI
+  flags (A3.8, IR-DP-4). The `training` and `evaluation` sections are now populated. OQ-1 (§7
+  of the SRS, `max_seq_len`/split-count calibration) is empirically closed:
+  `scripts/measure_token_lengths.py` renders the real profile pool with `render_example` and
+  tokenizes it with the actual selected base model's tokenizer (`Qwen/Qwen2.5-0.5B-Instruct`,
+  per Training's A3.2) via the same `load_real_tokenizer` `main()` uses, not the naive
+  `WhitespaceTokenizer` stand-in (which badly undercounts — render_example's `field=value`
+  facts have no internal whitespace, so naive `.split()` treats each fact as one token).
+  Measured result (`docs/analysis/token_length_measurement.json`): real max token length is 177
+  (train/val pool) / 142 (edge-case pool), comfortably under the configured `max_seq_len=256`
+  with zero truncation, so 256 was kept unchanged. The script also surfaced that
+  `config.json`'s `split_counts["test"]=30` is dead configuration — the actual test file is
+  sized by `generate_edge_case_profiles` (14 profiles for the current ruleset), not by
   `split_counts["test"]`, which only dilutes the train/val ratio denominator (actual resolved
   sizes at `n_profiles=400` are train=316/val=56/test=14, not the nominal 340/60/30); this is
-  now documented in the SRS rather than silently misleading. The real dataset has been
-  generated via `uv run python -m snhai.data_preparation` and is committed under `data/`
-  (`train.jsonl`/`val.jsonl`/`test.jsonl`/`data_card.json`) as a reviewable deliverable — this
-  is a technical-assessment repo, and the data is small/synthetic/exactly reproducible from the
-  seed (NFR-DP-1, verified by re-running and diffing).
+  documented in the SRS rather than silently misleading.
+
+  A second, more serious issue surfaced while wiring up a baseline (pre-fine-tuning)
+  evaluation: the first generated `data/` used `WhitespaceTokenizer`'s ad-hoc local vocabulary
+  for `input_ids`, but Training's `_batches()` feeds `input_ids` straight into the real model
+  as token ids without re-tokenizing, and Evaluation's `main()` decodes them with the real
+  tokenizer — both assume real-vocabulary-aligned ids, which whitespace-tokenizer ids aren't
+  (same small integers, unrelated meaning under Qwen's vocabulary; not a crash, silently wrong
+  training/eval). Fixed by adding `config.json`'s `data_preparation.tokenizer_model_id`
+  (`Qwen/Qwen2.5-0.5B-Instruct`, matching Training's A3.2) and `load_real_tokenizer()` in
+  `data_preparation.py`, so `main()`'s real run now tokenizes with the real, special-token-
+  extended base-model tokenizer instead of `WhitespaceTokenizer` — verified by round-tripping a
+  generated example's `input_ids` through `tokenizer.decode()` back to the original rendered
+  text. `data/` was regenerated accordingly (splits/label distribution unchanged, since only
+  the tokenizer changed, not profile generation; `data_card.json`'s `tokenizer_id` is now
+  `Qwen/Qwen2.5-0.5B-Instruct` rather than `whitespace`) and committed as the reviewable
+  deliverable — this is a technical-assessment repo, and the data is small/synthetic/exactly
+  reproducible from the seed (NFR-DP-1, verified by re-running and diffing both before and
+  after this fix). `transformers` moved from a dev-only to a main runtime dependency as a
+  result (`main()`'s real path needs it; the unit test suite still doesn't, since it injects
+  its own doubles and never imports `transformers`).
 - **Training**: spec (`docs/srs/training.md`), test suite (`tests/test_training.py`, 18
   tests), and implementation (`src/snhai/training.py`) are done; `uv run pytest tests/test_training.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.
@@ -157,13 +173,13 @@ uv run ruff check .                     # lint
 uv run ruff format .                    # auto-format (check with `--check` first)
 ```
 
-Current runtime dependencies are minimal (`pandas`, `seaborn`, `ipykernel`); dev dependencies
-are `jupyter`, `pytest`, `ruff`, `transformers` (dev-only; added solely for
-`scripts/measure_token_lengths.py`'s real-tokenizer calibration, not used by `src/snhai/` or
-its test suite — see the Data Preparation OQ-1 note above). Actually running Training/
-Evaluation's default model-loading paths will additionally require `torch`, which isn't
-installable on this machine (see the Training status note above) — that's expected to happen
-in a separate GPU-enabled environment (Colab).
+Runtime dependencies are `pandas`, `seaborn`, `ipykernel`, `transformers` (needed by Data
+Preparation's `main()` real-tokenizer path — see the Data Preparation note above — and by
+Training's/Evaluation's default model/tokenizer loaders; none of the three stages' unit test
+suites import it, since all of them inject their own fake doubles); dev dependencies are
+`jupyter`, `pytest`, `ruff`. Actually running Training/Evaluation's default model-loading paths
+will additionally require `torch`, which isn't installable on this machine (see the Training
+status note above) — that's expected to happen in a separate GPU-enabled environment (Colab).
 
 ## Key data files
 

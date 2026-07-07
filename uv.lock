@@ -2031,6 +2031,7 @@ dependencies = [
     { name = "ipykernel" },
     { name = "pandas" },
     { name = "seaborn" },
+    { name = "transformers" },
 ]
 
 [package.dev-dependencies]
@@ -2038,7 +2039,6 @@ dev = [
     { name = "jupyter" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -2046,6 +2046,7 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "transformers", specifier = ">=5.13.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -2053,7 +2054,6 @@ dev = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.20" },
-    { name = "transformers", specifier = ">=5.13.0" },
 ]
 
 [[package]]

@@ -2,12 +2,11 @@
 Preparation examples to resolve docs/srs/data-preparation.md OQ-1 (max_seq_len / split-count
 calibration).
 
-Not part of the `snhai` package or its test suite: this is the only place in the repo (besides
-training.py's/evaluation.py's own lazy default-loader functions) that imports `transformers`,
-and it lives outside `src/snhai/` so the installable package and its unit tests stay
-torch/transformers-free. `data_preparation.py`'s pipeline itself is unchanged and keeps using
-`WhitespaceTokenizer` as its default injected tokenizer (A3.5) — this script only measures
-against the real base-model tokenizer to calibrate `max_seq_len`.
+Not part of the `snhai` package or its test suite -- it lives outside `src/snhai/` so the
+unit tests stay lightweight, but it reuses `data_preparation.load_real_tokenizer` (the same
+real-tokenizer loader `main()` uses when `tokenizer_model_id` is configured) rather than
+maintaining its own copy, so this script measures exactly what a real `main()` run would
+actually produce.
 
 Usage: uv run python scripts/measure_token_lengths.py [--config config.json]
 """
@@ -23,27 +22,6 @@ from pathlib import Path
 
 from snhai import data_preparation as dp
 from snhai.config import load_config
-
-
-class _RealTokenizerAdapter:
-    """Wraps a HF tokenizer to match WhitespaceTokenizer's .encode/.pad_token_id contract."""
-
-    def __init__(self, hf_tokenizer):
-        self._tokenizer = hf_tokenizer
-        self.pad_token_id = hf_tokenizer.pad_token_id
-
-    def encode(self, text: str) -> list[int]:
-        return self._tokenizer.encode(text, add_special_tokens=False)
-
-
-def _load_real_tokenizer(model_id: str) -> _RealTokenizerAdapter:
-    from transformers import AutoTokenizer
-
-    hf_tokenizer = AutoTokenizer.from_pretrained(model_id)
-    # Mirrors training.py:align_tokenizer_and_model's tokenizer.add_special_tokens(...) call,
-    # so measured lengths reflect the vocabulary that will actually exist at training time.
-    hf_tokenizer.add_special_tokens(dp.SPECIAL_TOKENS)
-    return _RealTokenizerAdapter(hf_tokenizer)
 
 
 def _render_all(ruleset: dict, profiles: list[dict]) -> list[tuple[str, str]]:
@@ -130,7 +108,7 @@ def main(argv: list[str] | None = None) -> None:
         + dp.SPECIAL_TOKENS["additional_special_tokens"]
     )
     whitespace_tok = dp.WhitespaceTokenizer(special_tokens=special_tokens)
-    real_tok = _load_real_tokenizer(model_id)
+    real_tok = dp.load_real_tokenizer(model_id)
 
     tokenizers = {
         "whitespace_naive_proxy": whitespace_tok,
@@ -191,9 +169,12 @@ def main(argv: list[str] | None = None) -> None:
                 "data point -- do not use it to size max_seq_len."
             ),
             "tokenizer_id_in_data_card": (
-                "data_preparation.main() still uses WhitespaceTokenizer to produce the "
-                "committed dataset's input_ids (A3.5); real_model_tokenizer above is used only "
-                "for this calibration measurement, not for producing the dataset artifact."
+                "When data_preparation's config sets tokenizer_model_id (as config.json now "
+                "does), main() uses this same real-tokenizer path (load_real_tokenizer) to "
+                "produce the committed dataset's input_ids, not just for this calibration "
+                "measurement -- required because Training's batching feeds input_ids straight "
+                "into the model without re-tokenizing. WhitespaceTokenizer remains the "
+                "fallback default (A3.5) when tokenizer_model_id is unset."
             ),
         },
     }

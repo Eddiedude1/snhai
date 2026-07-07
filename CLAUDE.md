@@ -149,11 +149,16 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   `torch` import to do it. `uv run pytest tests/test_training.py` still green (18 passed).
 
   A fourth real gap, caught while the user was mid-run and asked how to confirm the Colab T4
-  was actually being used: neither `_default_model_loader` nor `_batches` ever placed anything
-  on a GPU device. `AutoModelForCausalLM.from_pretrained` loads onto CPU regardless of GPU
-  availability, and `_batches`'s `torch.tensor(...)` calls had no `device=` at all — so the
-  training run in progress was almost certainly running entirely on CPU despite the allocated
-  T4, which also explains its slowness. Fixed by adding `_resolve_device()` (`cuda` if
+  was actually being used, was also an SRS gap, not just a code bug: `docs/srs/training.md`'s
+  NFR-TR-2 mentioned GPU as a *possible* target ("single consumer GPU, or CPU as fallback") but
+  never actually required using one when present, so nothing flagged that neither
+  `_default_model_loader` nor `_batches` ever placed anything on a GPU device.
+  `AutoModelForCausalLM.from_pretrained` loads onto CPU regardless of GPU availability, and
+  `_batches`'s `torch.tensor(...)` calls had no `device=` at all — so the training run in
+  progress was almost certainly running entirely on CPU despite the allocated T4, which also
+  explains its slowness. NFR-TR-2 was tightened to require GPU execution when available ("silent
+  CPU execution alongside an unused, allocated GPU is not acceptable"), and the code fixed to
+  match by adding `_resolve_device()` (`cuda` if
   available, else `cpu`), moving the loaded model there in `_default_model_loader`, and
   threading a `device` parameter through `_batches`/`train_model` (inferred from
   `next(model.parameters()).device`, so it always matches wherever the model actually is).

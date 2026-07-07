@@ -36,7 +36,9 @@ labels/examples were produced (see [data-preparation.md](./data-preparation.md))
 
 - A3.1: Evaluation consumes exactly the model+tokenizer artifact and dataset contract emitted
   by Training and Data Preparation (IR-TR-2, IR-DP-2/IR-DP-3) — it does not retrain the model
-  or re-derive ground-truth labels.
+  or re-derive ground-truth labels. `--model-dir` MAY instead point at a raw, not-yet-fine-tuned
+  base-model checkpoint identifier (e.g. the Hugging Face Hub id Training would otherwise fine-
+  tune) to produce a pre-fine-tuning baseline report for comparison; see A3.7.
 - A3.2: Data Preparation's rule-evaluation logic (`evaluate_profile`/`derive_decision`) is the
   ground-truth oracle for correctness metrics; Evaluation reuses it rather than re-implementing
   rule logic, consistent with Data Preparation's NFR-DP-2 (rule logic lives in one place).
@@ -56,12 +58,28 @@ labels/examples were produced (see [data-preparation.md](./data-preparation.md))
   `config.py:load_config`), with precedence built-in script defaults < `config.json`'s
   `evaluation` section < explicit CLI flags. The `evaluation` section of `config.json` is a
   stub (`_todo`) until this stage's script exists.
+- A3.7: Per A3.1's baseline-checkpoint case, `main()` unconditionally calls
+  `training.align_tokenizer_and_model` (the same function Training's `main()` uses) on the
+  loaded model/tokenizer, using `data_card.json`'s `special_tokens`, immediately after loading
+  and before any decode/generate calls. A raw base-model checkpoint's tokenizer/embeddings don't
+  yet include this project's special tokens (`<|decision|>`, `<|/applicant|>`, etc.) that the
+  dataset's `input_ids` were tokenized with, so without this the stored ids can't be decoded and
+  generation has no way to reference those tokens. The call is a no-op for an already-fine-tuned
+  `model_dir` (Training already added the tokens and resized/saved both), so it's applied
+  unconditionally rather than branched on which kind of checkpoint was passed. Real
+  `model.generate()` also requires a batched tensor on the model's device rather than the plain
+  `list[int]` this stage's fake-model unit tests use (FR-EV-3/A3.4); `_default_model_loader`
+  wraps the real model so this conversion happens there, keeping `generate_completion`'s tested
+  list-in/list-out contract unchanged. Neither adjustment is covered by the unit test suite,
+  which never exercises the default (non-injected) loaders — consistent with training.md A3.2's
+  same carve-out for its own default loaders, both being real-transformers/torch-only code paths
+  that can't run without a torch install (see CLAUDE.md's environment notes).
 
 ## 4. Functional Requirements
 
 | ID | Requirement |
 |---|---|
-| FR-EV-1 | The system SHALL load the fine-tuned model and tokenizer from the directory produced by the Training stage. |
+| FR-EV-1 | The system SHALL load the fine-tuned model and tokenizer from the directory produced by the Training stage, or (A3.1/A3.7) from a raw base-model checkpoint identifier for a pre-fine-tuning baseline report, aligning the tokenizer/embeddings to the dataset's special tokens in the latter case. |
 | FR-EV-2 | The system SHALL load the validation (and/or held-out test) dataset produced by the Data Preparation stage without re-deriving tokenization or ground-truth labels. |
 | FR-EV-3 | The system SHALL generate a decision+rationale completion for each validation/test example from its applicant-profile prompt. |
 | FR-EV-4 | The system SHALL parse the generated completion's decision label from its `<|decision|>...<|/decision|>` span, treating an unparseable or missing span as a distinct outcome rather than silently defaulting to a label. |
@@ -84,7 +102,7 @@ labels/examples were produced (see [data-preparation.md](./data-preparation.md))
 
 | ID | Requirement |
 |---|---|
-| IR-EV-1 | **Input: model** — the model+tokenizer directory and training log produced per Training's IR-TR-2. |
+| IR-EV-1 | **Input: model** — the model+tokenizer directory and training log produced per Training's IR-TR-2, or (A3.1/A3.7) a raw base-model checkpoint identifier for a pre-fine-tuning baseline report. |
 | IR-EV-2 | **Input: data** — the validation/test dataset artifact and `data_card.json` produced per Data Preparation's IR-DP-2/IR-DP-3, used for prompts, ground-truth labels, and special-token parsing. |
 | IR-EV-3 | **Output** — an evaluation report artifact (metrics + sample dialogues) in a durable, inspectable format (e.g. JSON/markdown), suitable for inclusion in the challenge's optional brief report. |
 | IR-EV-4 | **Configuration** — the CLI SHALL accept an optional `--config` path to the shared namespaced JSON file (default `config.json`); it reads only this stage's `evaluation` section (via `config.py:load_config`) to supply CLI defaults, which explicit CLI flags then override (A3.6; mirrors data-preparation.md IR-DP-4). |

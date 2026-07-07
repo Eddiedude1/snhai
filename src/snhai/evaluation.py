@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 from snhai.config import load_config
 from snhai.data_preparation import DECISION_CLOSE, DECISION_OPEN
+from snhai.training import align_tokenizer_and_model
 
 # --- A3.3: decision labels are a closed, project-wide enum (unlike rule ids, which NFR-EV-3
 # keeps generic) --------------------------------------------------------------------------
@@ -35,10 +36,34 @@ _DRIVING_RULES_PATTERN = re.compile(r"failed rule\(s\):\s*(.*?)\.")
 # --- FR-EV-1 / IR-EV-1: loading the fine-tuned model + tokenizer ---------------------------
 
 
+class _RealCausalLMAdapter:
+    """Wraps a real HF causal LM so `.generate()` matches generate_completion's duck-typed
+    contract (plain list[int] in, plain list[int] out). Real `generate()` needs a batched
+    tensor on the model's device, unlike the list-in/list-out fakes this module's unit tests
+    use, so that conversion happens here rather than in generate_completion."""
+
+    def __init__(self, model, max_new_tokens: int = 200):
+        import torch
+
+        self._torch = torch
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = model.to(self._device)
+        self._max_new_tokens = max_new_tokens
+
+    def generate(self, input_ids: list[int]) -> list[int]:
+        batched = self._torch.tensor([input_ids], device=self._device)
+        with self._torch.no_grad():
+            output = self._model.generate(batched, max_new_tokens=self._max_new_tokens)
+        return output[0].tolist()
+
+    def resize_token_embeddings(self, *args, **kwargs):
+        return self._model.resize_token_embeddings(*args, **kwargs)
+
+
 def _default_model_loader(model_dir):
     from transformers import AutoModelForCausalLM
 
-    return AutoModelForCausalLM.from_pretrained(model_dir)
+    return _RealCausalLMAdapter(AutoModelForCausalLM.from_pretrained(model_dir))
 
 
 def _default_tokenizer_loader(model_dir):
@@ -257,6 +282,11 @@ def main(argv: list[str] | None = None) -> None:
 
     rng = random.Random(args.seed)
     model, tokenizer = load_finetuned_model(args.model_dir)
+    # Idempotent for an already-fine-tuned model_dir (tokens/embeddings already match);
+    # required for a raw base-model checkpoint, whose tokenizer/embeddings don't yet include
+    # this project's special tokens that the dataset's input_ids depend on.
+    data_card = json.loads((args.dataset_dir / "data_card.json").read_text())
+    align_tokenizer_and_model(model, tokenizer, data_card["special_tokens"])
     examples = load_eval_dataset(args.dataset_dir, split=args.split)
 
     results = []

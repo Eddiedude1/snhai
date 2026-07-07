@@ -122,6 +122,24 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   stages (A3.6/IR-EV-4); that section is now populated (model dir, dataset dir, split, seed,
   samples-per-label, report path).
 
+  A gap surfaced while preparing to run a real baseline (pre-fine-tuning) evaluation of the
+  raw `Qwen/Qwen2.5-0.5B-Instruct` checkpoint in Colab: `main()`'s default loaders/generation
+  path was only ever exercised against this stage's fake model/tokenizer doubles, which don't
+  reflect two real-transformers constraints. First, `model.generate()` requires a batched
+  tensor on the model's device, not the plain `list[int]` `generate_completion` passes in the
+  fake-double tests — fixed by having `_default_model_loader` return a `_RealCausalLMAdapter`
+  that does the tensor conversion/device placement internally, so `generate_completion`'s
+  tested list-in/list-out contract is untouched. Second, a raw base-model checkpoint's
+  tokenizer/embeddings don't yet include this project's special tokens
+  (`<|decision|>`/`<|/applicant|>`/etc.) that the dataset's `input_ids` were tokenized with —
+  fixed by having `main()` call `training.align_tokenizer_and_model` (same function Training's
+  `main()` uses) right after loading, using `data_card.json`'s `special_tokens`. This call is a
+  no-op for an already-fine-tuned `model_dir` (tokens/embeddings already match, since Training
+  saves both via `save_pretrained`), so it's unconditional rather than baseline-only. Neither
+  fix touches unit-tested behavior (`uv run pytest tests/test_evaluation.py` still 18 passed);
+  both paths remain untested by the fake-double suite since they only run against a real
+  transformers/torch install.
+
 All three stages have specs + test suites, and all three are now implemented and green:
 `uv run pytest tests/` passes (66 passed).
 

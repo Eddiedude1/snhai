@@ -1,0 +1,41 @@
+{
+  "data_preparation": {
+    "rules_path": "fine_tune_llm_credit_rules.json",
+    "output_dir": "data",
+    "seed": 42,
+    "n_profiles": 400,
+    "max_seq_len": 256,
+    "target_label_ratios": {
+      "APPROVE": 0.3333333333333333,
+      "REJECT": 0.3333333333333333,
+      "FLAG_REVIEW": 0.3333333333333333
+    },
+    "split_counts": {
+      "train": 340,
+      "val": 60,
+      "test": 30
+    }
+  },
+  "training": {
+    "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "dataset_dir": "data",
+    "output_dir": "runs/training",
+    "seed": 42,
+    "learning_rate": 0.0002,
+    "batch_size": 8,
+    "max_epochs": 3,
+    "optimizer_name": "adamw",
+    "weight_decay": 0.01,
+    "warmup_steps": 10,
+    "eval_every_n_steps": 50,
+    "checkpoint_every_n_steps": 50
+  },
+  "evaluation": {
+    "model_dir": "runs/training/final_model",
+    "dataset_dir": "data",
+    "split": "test",
+    "seed": 42,
+    "n_per_label": 2,
+    "report_path": "runs/evaluation/eval_report.json"
+  }
+}

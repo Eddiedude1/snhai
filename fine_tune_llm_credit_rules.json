@@ -1,0 +1,126 @@
+{
+  "personal_loan_credit_rules": {
+    "version": "1.0",
+    "description": "Ruleset for evaluating personal loan credit applications for individuals.",
+    "rules": [
+      {
+        "id": "RULE-AGE-001",
+        "name": "Minimum Age Requirement",
+        "description": "Applicant must be at least 18 years old to be legally eligible for a loan.",
+        "field": "applicant.age",
+        "operator": ">=",
+        "value": 18,
+        "unit": "years",
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "Eligibility"
+      },
+      {
+        "id": "RULE-CREDIT-001",
+        "name": "Minimum Credit Score",
+        "description": "Applicant's credit score must meet the minimum threshold for loan consideration.",
+        "field": "applicant.credit_score",
+        "operator": ">=",
+        "value": 670,
+        "score_type": "FICO_Score_8",
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "Creditworthiness"
+      },
+      {
+        "id": "RULE-INCOME-001",
+        "name": "Minimum Annual Income",
+        "description": "Applicant's verified annual gross income must meet the minimum required for a personal loan.",
+        "field": "applicant.annual_income_usd",
+        "operator": ">=",
+        "value": 30000,
+        "currency": "USD",
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "FinancialStability"
+      },
+      {
+        "id": "RULE-DTI-001",
+        "name": "Maximum Debt-to-Income Ratio (DTI)",
+        "description": "Applicant's total monthly debt payments (excluding mortgage) relative to gross monthly income must not exceed a specified percentage.",
+        "field": "applicant.debt_to_income_ratio_percent",
+        "operator": "<=",
+        "value": 40,
+        "unit": "percent",
+        "calculation_method": "monthly_gross_income",
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "FinancialStability"
+      },
+      {
+        "id": "RULE-EMPLOY-001",
+        "name": "Current Employment Status",
+        "description": "Applicant must be currently employed or have a verifiable, stable source of income.",
+        "field": "applicant.employment_status",
+        "operator": "in",
+        "value": ["employed_full_time", "employed_part_time", "self_employed", "retired"],
+        "action_on_fail": "REJECT",
+        "severity": "MAJOR",
+        "group": "FinancialStability"
+      },
+      {
+        "id": "RULE-EMPLOY-002",
+        "name": "Minimum Employment Duration",
+        "description": "Applicant must have been employed in their current role or field for a minimum duration.",
+        "field": "applicant.current_employment_duration_months",
+        "operator": ">=",
+        "value": 6,
+        "unit": "months",
+        "action_on_fail": "FLAG_REVIEW",
+        "severity": "MINOR",
+        "group": "FinancialStability"
+      },
+      {
+        "id": "RULE-RESIDENCY-001",
+        "name": "Residency Status",
+        "description": "Applicant must be a US Citizen or Permanent Resident.",
+        "field": "applicant.residency_status",
+        "operator": "in",
+        "value": ["US_Citizen", "Permanent_Resident"],
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "Eligibility"
+      },
+      {
+        "id": "RULE-BANKRUPTCY-001",
+        "name": "No Recent Bankruptcy Filing",
+        "description": "Applicant must not have filed for bankruptcy within the last 7 years.",
+        "field": "applicant.has_bankruptcy_recent",
+        "operator": "is",
+        "value": false,
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "Creditworthiness"
+      },
+      {
+        "id": "RULE-LOANAMT-001",
+        "name": "Loan Amount within Income Ratio",
+        "description": "Requested loan amount should not exceed a certain multiple of the applicant's annual income.",
+        "field": "loan_application.requested_amount_usd",
+        "operator": "<=",
+        "value_field_multiplier": "applicant.annual_income_usd",
+        "multiplier_value": 0.5,
+        "currency": "USD",
+        "action_on_fail": "FLAG_REVIEW",
+        "severity": "MINOR",
+        "group": "LoanSuitability"
+      },
+      {
+        "id": "RULE-BANKACCTS-001",
+        "name": "Verifiable Bank Account",
+        "description": "Applicant must possess at least one verifiable, active bank account for fund disbursement and repayment.",
+        "field": "applicant.has_verifiable_bank_account",
+        "operator": "is",
+        "value": true,
+        "action_on_fail": "REJECT",
+        "severity": "CRITICAL",
+        "group": "Eligibility"
+      }
+    ]
+  }
+}

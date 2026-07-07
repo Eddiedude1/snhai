@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-07-07T18:10:12.991321+00:00",
+  "config_path": "config.json",
+  "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+  "seed": 42,
+  "n_profiles": 400,
+  "configured_max_seq_len": 256,
+  "token_length_stats": {
+    "whitespace_naive_proxy": {
+      "balanced_pool": {
+        "n": 400,
+        "min": 25,
+        "mean": 25.95,
+        "median": 26.0,
+        "p90": 27,
+        "p95": 27,
+        "p99": 28,
+        "max": 29,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "edge_case_pool": {
+        "n": 14,
+        "min": 25,
+        "mean": 26.36,
+        "median": 27.0,
+        "p90": 27,
+        "p95": 27,
+        "p99": 27,
+        "max": 27,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      }
+    },
+    "real_model_tokenizer": {
+      "balanced_pool": {
+        "n": 400,
+        "min": 125,
+        "mean": 131.68,
+        "median": 130.0,
+        "p90": 141,
+        "p95": 145,
+        "p99": 157,
+        "max": 177,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "edge_case_pool": {
+        "n": 14,
+        "min": 132,
+        "mean": 135,
+        "median": 134.0,
+        "p90": 138,
+        "p95": 142,
+        "p99": 142,
+        "max": 142,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      }
+    }
+  },
+  "split_check": {
+    "configured_split_counts": {
+      "train": 340,
+      "val": 60,
+      "test": 30
+    },
+    "actual_n_train": 316,
+    "actual_n_val": 56,
+    "actual_n_discarded_from_pool": 28,
+    "actual_n_test_edge_cases": 14,
+    "note": "main() sizes train/val from split_dataset(profiles, split_ratios) but sizes the test file from generate_edge_case_profiles(), NOT from split_counts['test'] or the 'discarded' third of split_dataset above. split_counts['test'] only participates as a ratio denominator diluting train/val below their nominal counts.",
+    "train_label_distribution": {
+      "APPROVE": {
+        "count": 105,
+        "pct": 0.3323
+      },
+      "REJECT": {
+        "count": 108,
+        "pct": 0.3418
+      },
+      "FLAG_REVIEW": {
+        "count": 103,
+        "pct": 0.3259
+      }
+    },
+    "val_label_distribution": {
+      "APPROVE": {
+        "count": 18,
+        "pct": 0.3214
+      },
+      "REJECT": {
+        "count": 20,
+        "pct": 0.3571
+      },
+      "FLAG_REVIEW": {
+        "count": 18,
+        "pct": 0.3214
+      }
+    }
+  },
+  "notes": {
+    "whitespace_naive_proxy": "Naive whitespace .split() token count. render_example's facts line has no internal whitespace within a fact (e.g. 'applicant.credit_score=792'), so this severely undercounts real subword tokenization. Kept only as a contrast data point -- do not use it to size max_seq_len.",
+    "tokenizer_id_in_data_card": "data_preparation.main() still uses WhitespaceTokenizer to produce the committed dataset's input_ids (A3.5); real_model_tokenizer above is used only for this calibration measurement, not for producing the dataset artifact."
+  }
+}

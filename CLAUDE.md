@@ -1,0 +1,185 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project overview
+
+This repo is the implementation of the "SNH-AI Technical Coding Challenge: Building and
+Training a Large Language Model" (see `LLM Coding Challenge for AI Eng.pdf`). The goal is to
+build an end-to-end pipeline that fine-tunes a Hugging Face LLM to adjudicate personal loan
+applications (APPROVE / REJECT / FLAG_REVIEW) and explain its decision, using the rule set in
+`fine_tune_llm_credit_rules.json` as the source of truth for what the model should learn to
+apply.
+
+Expected deliverables per the challenge brief:
+- Data prep script(s): turn the credit rules into training examples (tokenization, special
+  tokens, padding/truncation, train/val/test split), with rationale documented.
+- Training script: fine-tune a chosen pretrained HF model with a full PyTorch/TensorFlow loop
+  (forward pass, loss, backprop, optimizer step, validation, checkpointing), with justification
+  for base model / optimizer / loss / hyperparameters.
+- Evaluation script: metrics on the validation set plus sample generated dialogues with a
+  strengths/weaknesses analysis.
+
+**Current state:** each stage is worked in order (Data Preparation → Training → Evaluation),
+spec-first: write a lean SRS under `docs/srs/`, then a failing pytest suite traced to that
+spec's requirement IDs, then (later) the implementation. Status per stage:
+- **Data Preparation**: spec (`docs/srs/data-preparation.md`), test suite
+  (`tests/test_data_preparation.py`, 27 tests), and implementation
+  (`src/snhai/data_preparation.py`) are done; `uv run pytest tests/test_data_preparation.py` is green (27 passed) and
+  `uv run ruff check .` / `uv run ruff format --check .` are clean. Seeded functions
+  (`generate_applicant_profiles`, `generate_balanced_profiles`, `generate_edge_case_profiles`,
+  `split_dataset`) use a local `random.Random(seed)` instance rather than global `random`
+  state (A3.6), enforced by dedicated non-mutation tests. Rule evaluation (`evaluate_profile`)
+  is generic/data-driven off each rule's `field`/`operator`/`value` (NFR-DP-2); synthetic
+  profile generation samples each field around its rule's threshold with a per-rule fail
+  probability keyed off `action_on_fail`. Left alone, this naturally skews decisions toward
+  REJECT (~75/15/12 REJECT/FLAG_REVIEW/APPROVE with the real ruleset, since REJECT fires if
+  *any* of 8 REJECT-severity rules fails) — `generate_balanced_profiles` stratifies toward a
+  configurable `target_label_ratios`, defaulting to a uniform 1/3 baseline (A3.7; open
+  question on a better, diversity-weighted default is OQ-3 in the SRS) and is what `main()`
+  now uses. Edge-case generation (`generate_edge_case_profiles`) perturbs 2-3
+  numeric-threshold rules at once from an all-pass baseline, including exact-threshold cases
+  (FR-DP-8). `data_preparation.py` also exposes a `main()` CLI that writes
+  `train.jsonl`/`val.jsonl`/`test.jsonl` and `data_card.json` to `--output-dir` using the
+  default `WhitespaceTokenizer` (not exercised by the unit tests, which inject their own
+  tokenizer double per A3.5). Configuration is externalized to a single namespaced
+  `config.json` (sections: `data_preparation`, `training`, `evaluation`) loaded via the shared
+  `src/snhai/config.py:load_config(path, stage)` utility (`tests/test_config.py`, 3 tests); precedence is
+  built-in script defaults < `config.json`'s stage section < explicit CLI flags (A3.8,
+  IR-DP-4). The `training` and `evaluation` sections are now populated. OQ-1 (§7 of the SRS,
+  `max_seq_len`/split-count calibration) is now empirically closed rather than just
+  design-resolved: `scripts/measure_token_lengths.py` (a one-off analysis script outside
+  `src/snhai/`, using a dev-only `transformers` dependency so the installable package and its
+  test suite stay torch/transformers-free) renders the real profile pool with `render_example`
+  and tokenizes it with the actual selected base model's tokenizer
+  (`Qwen/Qwen2.5-0.5B-Instruct`, per Training's A3.2), not just the pipeline's default
+  `WhitespaceTokenizer` stand-in (which turned out to badly undercount — render_example's
+  `field=value` facts have no internal whitespace, so naive `.split()` treats each fact as one
+  token). Measured result (`docs/analysis/token_length_measurement.json`): real max token
+  length is 177 (train/val pool) / 142 (edge-case pool), comfortably under the configured
+  `max_seq_len=256` with zero truncation, so 256 was kept unchanged. The script also surfaced
+  that `config.json`'s `split_counts["test"]=30` is dead configuration — the actual test file
+  is sized by `generate_edge_case_profiles` (14 profiles for the current ruleset), not by
+  `split_counts["test"]`, which only dilutes the train/val ratio denominator (actual resolved
+  sizes at `n_profiles=400` are train=316/val=56/test=14, not the nominal 340/60/30); this is
+  now documented in the SRS rather than silently misleading. The real dataset has been
+  generated via `uv run python -m snhai.data_preparation` and is committed under `data/`
+  (`train.jsonl`/`val.jsonl`/`test.jsonl`/`data_card.json`) as a reviewable deliverable — this
+  is a technical-assessment repo, and the data is small/synthetic/exactly reproducible from the
+  seed (NFR-DP-1, verified by re-running and diffing).
+- **Training**: spec (`docs/srs/training.md`), test suite (`tests/test_training.py`, 18
+  tests), and implementation (`src/snhai/training.py`) are done; `uv run pytest tests/test_training.py`
+  is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.
+  Tests exercise fake model/optimizer/tokenizer doubles throughout (duck-typing the relevant
+  HF/torch interfaces), so this stage's test suite has no torch/transformers dependency.
+  `load_base_model`/optimizer construction default to real `transformers`/`torch` imports, but
+  those imports are lazy (inside the default-loader/optimizer functions and `main()`'s
+  orchestration path only) rather than top-level — this machine (Intel macOS, Python 3.13) has
+  no installable torch wheel at all (PyPI dropped Intel-macOS torch wheels after 2.2.2, which
+  caps at cp312), so torch/transformers are deliberately *not* added to `pyproject.toml`; real
+  training is expected to run in a separate GPU-enabled environment (Colab, per A3.2's
+  rationale). Reproducibility is via a `make_rng(seed)` factory returning a local
+  `random.Random`, not a global `set_seed` call (A3.5, mirroring Data Preparation's A3.6). Its
+  CLI (`main()`, not exercised by the unit test suite, mirroring Data Preparation's `main()`)
+  reads hyperparameters from `config.json`'s `training` section via `src/snhai/config.py:load_config`,
+  same precedence pattern as Data Preparation (A3.6/IR-TR-4); that section is now populated
+  (learning rate, batch size, epochs, optimizer, weight decay, warmup, eval/checkpoint cadence).
+- **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
+  tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
+  is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.
+  Tests use fake model/tokenizer doubles and an injected `random.Random` (no global state)
+  throughout, so this stage's test suite has no torch/transformers dependency; `main()`'s
+  default loaders import `transformers` lazily, mirroring Training's A3.4 pattern.
+  Decision-label parsing relies on the `<|decision|>...<|/decision|>` special-token span
+  (A3.3), checked against a fixed `VALID_DECISION_LABELS` set (`APPROVE`/`REJECT`/
+  `FLAG_REVIEW`), not any model-specific output format; an unrecognized or missing span is a
+  distinct "unparseable" outcome rather than a crash (FR-EV-4/NFR-EV-5). Rule-citation accuracy
+  (FR-EV-6) is plain substring matching of driving rule ids against the generated completion,
+  so it stays generic across rulesets (NFR-EV-3) rather than hard-coding the real 10 rule ids.
+  Since Data Preparation's dataset artifact only persists tokenized `input_ids` (not the raw
+  applicant profile or an explicit driving-rule-ids field), `main()`'s orchestration path
+  recovers both the eval prompt and the ground-truth driving rule ids by decoding the stored
+  `input_ids` back to text and parsing data_preparation.render_example's rendered rationale
+  (`"...failed rule(s): <ids>."`) and splitting at `<|decision|>` — a documented, not fully
+  test-covered, implication of that dataset contract. Its CLI reads from `config.json`'s
+  `evaluation` section via `src/snhai/config.py:load_config`, same precedence pattern as the other two
+  stages (A3.6/IR-EV-4); that section is now populated (model dir, dataset dir, split, seed,
+  samples-per-label, report path).
+
+All three stages have specs + test suites, and all three are now implemented and green:
+`uv run pytest tests/` passes (66 passed).
+
+The three pipeline stages live in an installable `src/snhai/` package (`src/snhai/config.py`,
+`src/snhai/data_preparation.py`, `src/snhai/training.py`, `src/snhai/evaluation.py`, plus an
+empty `src/snhai/__init__.py`), built via a `hatchling` `[build-system]` in `pyproject.toml`;
+`uv sync` editable-installs it, so `tests/` and the stages import each other as
+`from snhai import data_preparation` etc. rather than as loose root-level scripts. Each stage's
+CLI is run as `uv run python -m snhai.<stage>` — there are deliberately no `[project.scripts]`
+entry points, to keep `pyproject.toml` minimal. `config.json` and
+`fine_tune_llm_credit_rules.json` intentionally stay at the repo root: they're data/config
+inputs, not package code, and moving them would only add path-updating churn for no benefit.
+The old unrelated `main.py` (`uv init` stub) has been removed. One-off analysis tooling (not
+part of the installable package or its test suite) lives outside `src/snhai/`: `scripts/` holds
+`measure_token_lengths.py`, and its output report is written to `docs/analysis/`.
+
+## Specifications & workflow
+
+- `docs/srs/` holds one lean-IEEE SRS per stage (`data-preparation.md`, `training.md`,
+  `evaluation.md`), each with Purpose/Scope, Assumptions & Constraints, Functional
+  Requirements (`FR-<STAGE>-#`), Non-Functional Requirements (`NFR-<STAGE>-#`), and Interface
+  Requirements (`IR-<STAGE>-#`).
+- Each stage's pytest module (`tests/test_<stage>.py`) traces every test back to a requirement
+  ID in that stage's docstring, so coverage is greppable, e.g.
+  `grep -o 'DP-[0-9]*' tests/test_data_preparation.py`.
+- Tests are written before the implementation and are expected to fail (red) until the stage's
+  script is written — a collection-time `ModuleNotFoundError` for the not-yet-created module is
+  the expected failure mode, not a bug in the test file.
+- Fixtures start local to their test file; only promote a fixture to `tests/conftest.py` once a
+  second stage's test module actually needs it.
+- **Definition of done for a stage's spec+tests work**, before moving to the next stage: tests
+  fail for the right reason (missing implementation, not a broken test), `uv run ruff check .`
+  and `uv run ruff format --check .` are clean (or their diffs have been applied), and this
+  file's "Current state" above reflects what was actually built.
+
+## Environment and commands
+
+This project uses `uv` (see `uv.lock`, `pyproject.toml`) with Python 3.13 (`.python-version`).
+
+```bash
+uv sync                                 # install deps + editable-install the snhai package
+uv run python -m snhai.data_preparation # run a stage (also: snhai.training, snhai.evaluation)
+uv add <package>                        # add a new dependency (updates pyproject.toml + uv.lock)
+uv add --dev <package>                   # add a dev-only dependency (e.g. test/lint tooling)
+uv run jupyter lab                      # the `dev` group includes jupyter; ipykernel is also a dependency
+uv run pytest                           # run the full test suite
+uv run pytest tests/test_data_preparation.py -q   # run one stage's tests
+uv run ruff check .                     # lint
+uv run ruff format .                    # auto-format (check with `--check` first)
+```
+
+Current runtime dependencies are minimal (`pandas`, `seaborn`, `ipykernel`); dev dependencies
+are `jupyter`, `pytest`, `ruff`, `transformers` (dev-only; added solely for
+`scripts/measure_token_lengths.py`'s real-tokenizer calibration, not used by `src/snhai/` or
+its test suite — see the Data Preparation OQ-1 note above). Actually running Training/
+Evaluation's default model-loading paths will additionally require `torch`, which isn't
+installable on this machine (see the Training status note above) — that's expected to happen
+in a separate GPU-enabled environment (Colab).
+
+## Key data files
+
+- `fine_tune_llm_credit_rules.json` — the source ruleset (`personal_loan_credit_rules`). Each
+  rule has: `id`, `name`, `description`, `field` (dotted path like `applicant.credit_score`),
+  `operator` (`>=`, `<=`, `in`, `is`, or a field-relative comparison via
+  `value_field_multiplier`/`multiplier_value`), `value`, `action_on_fail`
+  (`REJECT` | `FLAG_REVIEW`), `severity` (`CRITICAL` | `MAJOR` | `MINOR`), and `group`
+  (e.g. `Eligibility`, `Creditworthiness`, `FinancialStability`, `LoanSuitability`). Any data
+  generation/labeling logic must evaluate applications against *all* rules and should respect
+  the fact that a `REJECT`-severity rule failing should dominate the final decision.
+- `.ipynb_checkpoints/data_card-checkpoint.json` — a draft data card from earlier
+  exploration (not tracked in git; `.ipynb_checkpoints` is gitignored). It documents an intended
+  dataset shape worth reusing as a starting point: 10 rules, whitespace-fallback tokenizer,
+  special tokens (`<|begin|>`, `<|end|>`, `<|pad|>`, `<|applicant|>`/`<|/applicant|>`,
+  `<|decision|>`/`<|/decision|>`), `max_seq_len` 256, a 340/60/30 train/val/test split, decision
+  label distribution (APPROVE/REJECT/FLAG_REVIEW), and a test set deliberately composed of
+  held-out multi-rule edge cases (2-3 simultaneous rule perturbations, some at exact numeric
+  thresholds) — useful for stress-testing threshold logic.

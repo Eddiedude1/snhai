@@ -1,0 +1,38 @@
+{
+  "n_rules": 10,
+  "max_seq_len": 256,
+  "tokenizer_id": "whitespace",
+  "special_tokens": {
+    "bos_token": "<|begin|>",
+    "eos_token": "<|end|>",
+    "pad_token": "<|pad|>",
+    "additional_special_tokens": [
+      "<|applicant|>",
+      "<|/applicant|>",
+      "<|decision|>",
+      "<|/decision|>"
+    ]
+  },
+  "splits": {
+    "train": 316,
+    "val": 56,
+    "test": 14
+  },
+  "decision_label_distribution": {
+    "train": {
+      "APPROVE": 105,
+      "REJECT": 108,
+      "FLAG_REVIEW": 103
+    },
+    "val": {
+      "APPROVE": 18,
+      "REJECT": 20,
+      "FLAG_REVIEW": 18
+    },
+    "test": {
+      "APPROVE": 9,
+      "REJECT": 4,
+      "FLAG_REVIEW": 1
+    }
+  }
+}

@@ -49,7 +49,14 @@ Out of scope: how training examples are generated or tokenized (see
   freezes the base model by default, resizing alone is not sufficient: `embed_tokens` and
   `lm_head` SHALL be added to the LoRA config's `modules_to_save` (fully fine-tuned, not
   LoRA-adapted) so the newly added token rows actually receive gradient updates, rather than
-  remaining at their random initialization.
+  remaining at their random initialization. `align_tokenizer_and_model` resizes to
+  `len(tokenizer)`, not `tokenizer.vocab_size`: real HF tokenizers leave `vocab_size` at the
+  base size after `add_special_tokens` and only reflect added tokens via `__len__`, so resizing
+  to `vocab_size` would silently leave the embedding table too small and the newly added
+  token ids out of range — surfaced as a CUDA device-side assert (embedding index
+  out-of-bounds) the first time this was run against a real model in Colab, since the unit
+  test suite's `FakeTokenizer` originally (incorrectly) mutated `vocab_size` itself and so
+  didn't catch the discrepancy.
 - A3.4: PyTorch is assumed as the training framework (the more idiomatic path through Hugging
   Face Transformers); TensorFlow is not pursued unless a specific reason emerges to prefer it.
 - A3.5: Reproducibility SHALL be provided by a local RNG instance created via a `make_rng(seed)`

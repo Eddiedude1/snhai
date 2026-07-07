@@ -52,7 +52,10 @@ def load_base_model(
 
 def align_tokenizer_and_model(model, tokenizer, special_tokens: dict) -> int:
     added = tokenizer.add_special_tokens(special_tokens)
-    model.resize_token_embeddings(tokenizer.vocab_size)
+    # len(tokenizer), not tokenizer.vocab_size: real HF tokenizers leave vocab_size at the base
+    # size after add_special_tokens and only reflect added tokens in __len__, so resizing to
+    # vocab_size is a no-op that leaves newly added token ids out of the embedding table's range.
+    model.resize_token_embeddings(len(tokenizer))
     return added
 
 

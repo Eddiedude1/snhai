@@ -100,6 +100,19 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   reads hyperparameters from `config.json`'s `training` section via `src/snhai/config.py:load_config`,
   same precedence pattern as Data Preparation (A3.6/IR-TR-4); that section is now populated
   (learning rate, batch size, epochs, optimizer, weight decay, warmup, eval/checkpoint cadence).
+
+  A real bug surfaced the first time `align_tokenizer_and_model` actually ran against a real
+  model (via Evaluation's baseline-eval path in Colab, not Training itself yet): it resized
+  embeddings to `tokenizer.vocab_size`, but real HF tokenizers leave `vocab_size` at the base
+  size after `add_special_tokens` — only `len(tokenizer)` reflects the added tokens — so the
+  embedding table was never actually grown, and the newly added special-token ids (e.g.
+  `<|decision|>`) indexed past its end, crashing with a CUDA device-side assert (embedding
+  index out-of-bounds) on first real generation. Fixed by resizing to `len(tokenizer)`
+  (`src/snhai/training.py`, A3.3). The unit test suite's `FakeTokenizer` double had (wrongly)
+  mutated `vocab_size` itself on `add_special_tokens`, matching neither real tokenizer behavior
+  nor exposing the bug; it's now fixed to mirror real semantics (`vocab_size` fixed, `__len__`
+  reflects additions), and `tests/test_training.py`'s alignment test updated accordingly —
+  `uv run pytest tests/test_training.py` still green (18 passed).
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.

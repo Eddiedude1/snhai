@@ -109,9 +109,15 @@ class FakeOptimizer:
 
 
 class FakeTokenizer:
+    """Mirrors real HF tokenizer semantics: vocab_size is the fixed base-vocab size and does
+    not change when special tokens are added; __len__ reflects vocab_size + added tokens."""
+
     def __init__(self, vocab_size: int = 100):
         self.vocab_size = vocab_size
         self.added_tokens: list[str] = []
+
+    def __len__(self) -> int:
+        return self.vocab_size + len(self.added_tokens)
 
     def add_special_tokens(self, special_tokens: dict) -> int:
         new_tokens = []
@@ -121,7 +127,6 @@ class FakeTokenizer:
                 if token not in self.added_tokens and token not in new_tokens:
                     new_tokens.append(token)
         self.added_tokens.extend(new_tokens)
-        self.vocab_size += len(new_tokens)
         return len(new_tokens)
 
     def save_pretrained(self, path):
@@ -169,8 +174,11 @@ def test_align_tokenizer_and_model_adds_special_tokens_and_resizes_embeddings():
     model = FakeModel()
     model.embedding_size = 100
     tr.align_tokenizer_and_model(model, tokenizer, SPECIAL_TOKENS)
-    assert tokenizer.vocab_size == 107  # 3 single tokens + 4 additional_special_tokens
-    assert model.embedding_size == tokenizer.vocab_size
+    assert (
+        tokenizer.vocab_size == 100
+    )  # base vocab size is unchanged by adding special tokens
+    assert len(tokenizer) == 107  # 3 single tokens + 4 additional_special_tokens
+    assert model.embedding_size == len(tokenizer)
 
 
 # --- FR-TR-3 / IR-TR-1: loading Data Preparation's dataset artifact ----------------------------

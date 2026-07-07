@@ -282,6 +282,11 @@ def train_model(
         optimizer.load_state_dict(restored.optimizer_state)
         step = restored.step
         start_epoch = restored.epoch
+    else:
+        # log_metrics appends; without truncating here, restarting a fresh (non-resumed) run
+        # against a log_path left over from a prior interrupted attempt silently mixes both
+        # runs' entries together under overlapping step numbers.
+        Path(log_path).write_text("")
 
     val_loss_by_step: dict[int, float] = {}
     for epoch in range(start_epoch, config.max_epochs):

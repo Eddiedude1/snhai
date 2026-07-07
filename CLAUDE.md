@@ -168,6 +168,21 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   `main` are exercised by the unit test suite (real-transformers-only CLI orchestration, per
   this file's existing note), so this needed no test changes; `uv run pytest` still green (66
   passed).
+
+  A fifth, minor real gap surfaced when committing `runs/training/metrics.log` as evidence
+  alongside `eval_report.json`: `log_metrics` opens the log file in append mode, but
+  `train_model` never truncated it at the start of a fresh (non-resumed) run, so the several
+  earlier interrupted Colab attempts (the CPU-bound run before the device-placement fix, plus a
+  couple of aborted retries) had all appended their own `step 1`/`step 2`/`step 3` entries onto
+  the same `runs/training/metrics.log` before the actual successful 120-step run wrote its own —
+  producing a handful of stray duplicate/overlapping leading step numbers with different loss
+  values in the raw file. Fixed by truncating `log_path` at the start of `train_model` whenever
+  `resume_checkpoint is None` (a genuine resume still appends, continuing the same log). The
+  committed `runs/training/metrics.log` was manually cleaned to the single continuous 120-step
+  run before this fix landed (its own step-50/step-100 val losses match the console output
+  already reported in this file and `REPORT.md`); future fresh runs will produce a clean log
+  automatically. `uv run pytest` still green (66 passed), since `train_model` isn't exercised by
+  the unit test suite (same real-transformers-only carve-out as above).
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.

@@ -103,6 +103,8 @@ touching code.
 - `data/` — the committed, reproducible dataset artifact (train/val/test splits + data card).
 - `runs/evaluation/baseline_eval_report.json` — pre-fine-tuning baseline evaluation report.
 - `runs/evaluation/eval_report.json` — post-fine-tuning evaluation report.
+- `runs/training/metrics.log` — per-step train/val loss from the training run that produced the
+  model behind `eval_report.json`.
 - `docs/srs/` — one lean SRS per stage; `docs/analysis/` — supporting empirical analysis (e.g.
   token-length measurement used to size `max_seq_len`).
 - `REPORT.md` — approach, results, and strengths/weaknesses analysis.

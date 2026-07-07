@@ -208,6 +208,25 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   both paths remain untested by the fake-double suite since they only run against a real
   transformers/torch install.
 
+  A real parsing bug (not a model-quality issue) surfaced once a real fine-tuned checkpoint's
+  evaluation came back 0% accuracy / 100% unparseable despite completions that visibly contained
+  well-formed `<|decision|>\nDecision: APPROVE\nRationale: ...\n<|/decision|>` spans —
+  `data_preparation.render_example` renders `"Decision: {decision}\nRationale: {rationale}"`
+  *inside* the span, but `parse_decision` required the span's entire stripped content to
+  exactly equal a bare label (`"APPROVE"`, not `"Decision: APPROVE\nRationale: ..."`), so it
+  never matched. The unit test suite's `parse_decision` tests only ever used a bare-label span
+  (`<|decision|>REJECT<|/decision|>`), which matched the buggy exact-equality check instead of
+  exposing the mismatch against the real rendered format. Fixed by searching the span content
+  for any of `VALID_DECISION_LABELS` as a whole word (`_LABEL_PATTERN`, word-boundary-anchored
+  so e.g. `REJECTED` doesn't false-positive-match `REJECT`) rather than requiring exact equality
+  — this also keeps the existing bare-label unit tests passing unchanged, since a bare label is
+  a special case of "label appears as a whole word in the span." `uv run pytest
+  tests/test_evaluation.py` still green (18 passed). Confirmed this bug did *not* affect the
+  already-committed `baseline_eval_report.json`: the raw pre-fine-tuning model's completions
+  never contained a closing `<|/decision|>` tag at all (it just rambled in generic chat style),
+  so its "0% accuracy, all unparseable" result was independently correct and doesn't need
+  re-running — only the post-fine-tuning evaluation was masked by this bug.
+
 All three stages have specs + test suites, and all three are now implemented and green:
 `uv run pytest tests/` passes (66 passed).
 

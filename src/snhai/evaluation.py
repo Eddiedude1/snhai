@@ -31,6 +31,12 @@ _DECISION_SPAN_PATTERN = re.compile(
     re.escape(DECISION_OPEN) + r"(.*?)" + re.escape(DECISION_CLOSE), re.DOTALL
 )
 _DRIVING_RULES_PATTERN = re.compile(r"failed rule\(s\):\s*(.*?)\.")
+# data_preparation.render_example renders "Decision: <label>\nRationale: ..." inside the span
+# (not the bare label alone), so the label is found as a whole word within the span rather than
+# by exact-matching the span's full stripped content.
+_LABEL_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(label) for label in VALID_DECISION_LABELS) + r")\b"
+)
 
 
 # --- FR-EV-1 / IR-EV-1: loading the fine-tuned model + tokenizer ---------------------------
@@ -114,8 +120,8 @@ def parse_decision(completion: str) -> str | None:
     match = _DECISION_SPAN_PATTERN.search(completion)
     if not match:
         return None
-    label = match.group(1).strip()
-    return label if label in VALID_DECISION_LABELS else None
+    label_match = _LABEL_PATTERN.search(match.group(1))
+    return label_match.group(1) if label_match else None
 
 
 # --- FR-EV-5 / NFR-EV-4 / NFR-EV-5: classification metrics ---------------------------------

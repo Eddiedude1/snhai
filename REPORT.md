@@ -142,3 +142,17 @@ architectural or methodological flaw in the pipeline itself.
   whole sequence; more heavily weighting the rationale span, or a two-stage decision-then-citation
   objective, could target the rule-grounding weakness more directly than more of the same data
   would.
+- **Revisit the forced class balance.** Training data was stratified to a uniform 1/3
+  APPROVE/REJECT/FLAG_REVIEW split (`data-preparation.md` A3.7); left alone, the rule set
+  naturally produces a heavily skewed ~75%/15%/12% REJECT/FLAG_REVIEW/APPROVE distribution
+  (REJECT fires if *any* of 8 REJECT-severity rules fails). Stratifying almost certainly helped
+  the model get any exposure at all to the rarest class (FLAG_REVIEW), but it also means the
+  model was trained on a decision prior that doesn't match what it would see against real
+  loan-application traffic — so the 57.1% accuracy figure in §2 shouldn't be read as an estimate
+  of production accuracy. Worth a follow-up ablation: train on the natural (unstratified)
+  distribution and compare per-class recall against this stratified run, and/or try class-
+  weighted loss (up-weighting rare-class gradient contribution) as an alternative to stratified
+  resampling that preserves the natural distribution's example diversity. Either way, evaluating
+  against both a stratified set (to compare like-for-like with this run) and a natural-
+  distribution set (to estimate realistic deployment accuracy) would separate "did the model
+  learn the decision boundaries" from "what accuracy would this see in production."

@@ -19,6 +19,30 @@ directory; Evaluation scores that model and writes a report. See `CLAUDE.md` for
 running account of design decisions and real bugs found/fixed while building this out, and
 `REPORT.md` for the results/analysis writeup.
 
+## Repository Layout
+
+```
+.
+├── config.json                    # hyperparameters/paths for all three stages (see Configuration)
+├── fine_tune_llm_credit_rules.json  # source ruleset
+├── pyproject.toml, uv.lock        # dependencies (see Setup)
+├── README.md, REPORT.md, CLAUDE.md
+├── src/snhai/                     # the installable package
+│   ├── config.py                  # shared config.json loader
+│   ├── data_preparation.py        # Stage 1
+│   ├── training.py                # Stage 2
+│   └── evaluation.py              # Stage 3
+├── tests/                         # one test module per stage, no GPU/torch required
+├── docs/
+│   ├── srs/                       # one lean spec per stage
+│   └── analysis/                  # supporting empirical analysis (e.g. token-length measurement)
+├── scripts/                       # one-off analysis tooling, not part of the package/tests
+├── data/                          # committed, reproducible dataset artifact (Stage 1 output)
+└── runs/
+    ├── training/metrics.log       # per-step loss from the training run behind eval_report.json
+    └── evaluation/                # baseline (pre-fine-tuning) and post-fine-tuning reports
+```
+
 ## Setup
 
 Requires [`uv`](https://docs.astral.sh/uv/) and Python 3.13 (`.python-version`).

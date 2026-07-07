@@ -132,7 +132,7 @@ def get_optimizer_constructor(name: str) -> Callable[..., Any]:
 def training_step(model, batch, optimizer) -> float:
     model.train()
     optimizer.zero_grad()
-    loss = model(batch).loss
+    loss = model(**batch).loss
     loss.backward()
     optimizer.step()
     return loss.item()
@@ -143,7 +143,7 @@ def training_step(model, batch, optimizer) -> float:
 
 def evaluate(model, batches: list) -> float:
     model.eval()
-    losses = [model(batch).loss.item() for batch in batches]
+    losses = [model(**batch).loss.item() for batch in batches]
     return sum(losses) / len(losses)
 
 

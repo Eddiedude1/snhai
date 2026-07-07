@@ -66,7 +66,7 @@ class FakeModel:
         self.embedding_size = 100
         self.weight = "untrained"
 
-    def __call__(self, batch):
+    def __call__(self, **kwargs):
         if self._loss_values is not None:
             value = self._loss_values[self._call_index]
             self._call_index += 1

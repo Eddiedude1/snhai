@@ -126,6 +126,18 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   nor exposing the bug; it's now fixed to mirror real semantics (`vocab_size` fixed, `__len__`
   reflects additions), and `tests/test_training.py`'s alignment test updated accordingly —
   `uv run pytest tests/test_training.py` still green (18 passed).
+
+  A second real bug surfaced on the first real Colab training run itself (not just alignment):
+  `training_step`/`evaluate` called `model(batch)`, passing the whole batch dict as a single
+  positional argument. Real HF causal-LM `forward()` takes `input_ids`/`attention_mask`/`labels`
+  as separate keyword arguments, so this crashed immediately (`TypeError: embedding(): argument
+  'indices' ... must be Tensor, not dict` — the dict was being passed straight through as
+  `input_ids`). Fixed by calling `model(**batch)` in both functions
+  (`src/snhai/training.py`). The unit test suite's `FakeModel` double had `__call__(self,
+  batch)` — a single positional dict — which matched the buggy call site instead of exposing
+  it; fixed to `__call__(self, **kwargs)` to mirror real HF model call semantics, and
+  `uv run pytest tests/test_training.py` still green (18 passed) since no test asserts on the
+  double's argument-passing convention itself.
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.

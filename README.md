@@ -1,4 +1,4 @@
-# SNH-AI Technical Coding Challenge: Building and Training an LLM
+# Project
 
 An end-to-end pipeline that fine-tunes a Hugging Face LLM to adjudicate personal loan
 applications (`APPROVE` / `REJECT` / `FLAG_REVIEW`) and explain its decision, using the rule set

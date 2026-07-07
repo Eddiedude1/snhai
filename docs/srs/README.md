@@ -6,9 +6,9 @@ then a failing pytest suite traced to its requirement IDs, then (later) the impl
 
 | Stage | Spec | Tests | Status |
 |---|---|---|---|
-| 1. Data Preparation | [data-preparation.md](./data-preparation.md) | `tests/test_data_preparation.py` (23 tests) | Spec + red tests done; `data_preparation.py` not yet implemented |
-| 2. Model Selection & Training | [training.md](./training.md) | `tests/test_training.py` (18 tests) | Spec + red tests done; `training.py` not yet implemented |
-| 3. Evaluation & Analysis | [evaluation.md](./evaluation.md) | `tests/test_evaluation.py` (18 tests) | Spec + red tests done; `evaluation.py` not yet implemented |
+| 1. Data Preparation | [data-preparation.md](./data-preparation.md) | `tests/test_data_preparation.py` (27 tests) | Implemented; `uv run pytest tests/test_data_preparation.py` green |
+| 2. Model Selection & Training | [training.md](./training.md) | `tests/test_training.py` (18 tests) | Implemented; real Colab training run complete (`runs/training`) |
+| 3. Evaluation & Analysis | [evaluation.md](./evaluation.md) | `tests/test_evaluation.py` (18 tests) | Implemented; baseline + post-fine-tuning reports in `runs/evaluation/` |
 
 Each stage's dataset/model artifact is the next stage's input: Data Preparation's tokenized
 datasets + `data_card.json` feed Training; Training's saved model + tokenizer directory feeds

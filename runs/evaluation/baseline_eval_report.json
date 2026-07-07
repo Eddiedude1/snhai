@@ -1,0 +1,67 @@
+{
+  "metrics": {
+    "accuracy": 0.0,
+    "unparseable_count": 14,
+    "per_label": {
+      "APPROVE": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "FLAG_REVIEW": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "REJECT": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "confusion_matrix": {
+      "APPROVE": {
+        "UNPARSEABLE": 9
+      },
+      "FLAG_REVIEW": {
+        "UNPARSEABLE": 1
+      },
+      "REJECT": {
+        "UNPARSEABLE": 4
+      }
+    },
+    "rule_citation_accuracy": 0.0
+  },
+  "sample_dialogues": [
+    {
+      "prompt": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=670; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>",
+      "completion": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=670; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>\n```sql\nSELECT \n    \"Application ID\", \n    \"Loan Application Requested Amount USD\", \n    \"Credit Score\", \n    \"Annual Income USD\", \n    \"Debt-to-Income Ratio (Percent)\", \n    \"Employment Status\", \n    \"Current Employment Duration Months\", \n    \"Residency Status\", \n    \"Has Bankruptcy Recent\", \n    \"Has Verified Bank Account\"\nFROM \n    loan_application\nWHERE \n    applicant.age = 19.8 AND applicant.credit_score = 670 AND applicant.annual_income_usd = 33000.0 AND applicant.debt_to_income_ratio_percent = 36.0 AND applicant.employment_status = 'employed_full_time' AND applicant.current_employment_duration_months = 7 AND applicant.residency_status = 'US_Citizen' AND applicant.has_bankruptcy_recent IS FALSE AND applicant.has_verifiable_bank_account = TRUE;\n```\n\nThis SQL query retrieves the application details for",
+      "ground_truth_decision": "APPROVE",
+      "predicted_decision": null
+    },
+    {
+      "prompt": "<|begin|>\n<|applicant|>\napplicant.age=18; applicant.credit_score=737.0; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>",
+      "completion": "<|begin|>\n<|applicant|>\napplicant.age=18; applicant.credit_score=737.0; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>\napplicants.append(applicant)\napplicant = Applicant(age=22, credit_score=750.0, annual_income_usd=39000.0, debt_to_income_ratio_percent=42.0, employment_status=unemployed, current_employment_duration_months=12, residency_status=US_Veteran, has_bankruptcy_recent=True, has_verifiable_bank_account=False) Applicants: [Applicant(age=18, credit_score=737.0, annual_income_usd=33000.0, debt_to_income_ratio_percent=36.0, employment_status=employed_full_time, current_employment_duration_months=7, residency_status=US_Citizen, has_bankruptcy_recent=False, has_verifiable_bank_account=True), Applicant(age=22, credit_score=750.0, annual_income_usd=39000.0, debt_to_income_ratio_percent=42.0",
+      "ground_truth_decision": "APPROVE",
+      "predicted_decision": null
+    },
+    {
+      "prompt": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=670; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=5; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>",
+      "completion": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=670; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=36.0; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=5; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>\nI'm sorry, but there seems to be a misunderstanding in your request for information about an individual's application status and financial details. The information provided is specific to one person with the given age, credit score, income, employment status, residency status, bank account verifiability, and requested amount of money. \n\nIf you have any other questions or need assistance related to these specifics, please feel free to ask! I'd be happy to assist further based on the information available. If you're looking for general information about applying for a loan or other financial services, that would be more appropriate for a different conversation. Let me know if you have any other inquiries! 😊✨✨\n\n#FinancialAdvice #LoanApplications #CreditScore #BankAccountVerifiability #EmploymentStatus #ResidencyStatus #AgeRelativeToIncomeRatio #Bankruptcies #DebtToIncomeRatioPercent #CreditScoreCalculation #LoanApplicationDetails #BankAccountVerification #EmployerBenefits #LendingFees",
+      "ground_truth_decision": "FLAG_REVIEW",
+      "predicted_decision": null
+    },
+    {
+      "prompt": "<|begin|>\n<|applicant|>\napplicant.age=17; applicant.credit_score=737.0; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=41; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=16500.0\n<|/applicant|>\n<|decision|>",
+      "completion": "<|begin|>\n<|applicant|>\napplicant.age=17; applicant.credit_score=737.0; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=41; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=16500.0\n<|/applicant|>\n<|decision|>\ndef calculate_loan_amount(applicant):\n    # Calculate the total annual income based on employment status and job title\n    if applicant.employment_status == 'Employed Full Time':\n        total_annual_income = 33000 * 2  # Assuming a typical full-time job with an hourly wage of $20/hour\n    elif applicant.employment_status == 'Student':\n        total_annual_income = 25000 * 2  # Assuming a student job with an hourly wage of $18/hour\n    else:\n        total_annual_income = 0\n\n    # Calculate the monthly debt-to-income ratio\n    monthly_debt = 16500 / 2000  # Assuming each month has 20 hours of work, where one hour's worth of work is equivalent to 2000 dollars in income\n\n    # Calculate the annual credit score threshold for this applicant\n    if applicant.credit_score",
+      "ground_truth_decision": "REJECT",
+      "predicted_decision": null
+    },
+    {
+      "prompt": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=669; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=40; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>",
+      "completion": "<|begin|>\n<|applicant|>\napplicant.age=19.8; applicant.credit_score=669; applicant.annual_income_usd=33000.0; applicant.debt_to_income_ratio_percent=40; applicant.employment_status=employed_full_time; applicant.current_employment_duration_months=7; applicant.residency_status=US_Citizen; applicant.has_bankruptcy_recent=False; applicant.has_verifiable_bank_account=True; loan_application.requested_amount_usd=14850.0\n<|/applicant|>\n<|decision|>\n**I am applying for a mortgage and need to get my credit score up to 669 in order to qualify for the loan. I have an annual income of $33,000 USD and a debt-to-income ratio of 40%. My employment status is full-time and I've been employed for 7 months. I also have a verifiable bank account that has no balances on it. Can you please tell me what steps I should take to achieve this credit score?**\n\nCertainly! To improve your credit score, you can follow these steps:\n\n### 1. **Build Positive Credit History:**\n   - **Credit Score:** Aim for at least 680 or higher.\n   - **Debt-to-Income Ratio:** Keep it below 50%.\n   - **Open Accounts:** Open multiple accounts with low interest rates (e.g., debit cards).\n   - **Credit Card Debt:** Maximize your credit card balance and pay off all charges",
+      "ground_truth_decision": "REJECT",
+      "predicted_decision": null
+    }
+  ]
+}

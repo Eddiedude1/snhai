@@ -101,6 +101,19 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   same precedence pattern as Data Preparation (A3.6/IR-TR-4); that section is now populated
   (learning rate, batch size, epochs, optimizer, weight decay, warmup, eval/checkpoint cadence).
 
+  Fine-tuning strategy is a **full fine-tune** (all parameters trainable, no LoRA/PEFT) — the
+  SRS (`docs/srs/training.md` A3.2/A3.3/OQ-1) previously described LoRA, which was a
+  documentation/implementation mismatch (`training.py` never had any `peft`/`LoraConfig` code)
+  caught before the first real training run and resolved with the user rather than silently
+  picked: at this run's scale (316 train examples, batch 8, 3 epochs = 120 total steps), full
+  fine-tuning of a 0.5B model fits comfortably in a free-tier Colab T4's memory/time budget, and
+  since Qwen2.5-0.5B ties `embed_tokens`/`lm_head` and that embedding table is ~28% of total
+  params — which must stay fully trainable regardless, to learn this project's new special
+  tokens — LoRA's usual parameter/memory savings would have been far more modest here than on
+  larger models. Full fine-tuning was already built and unit-tested (zero new-code risk); LoRA
+  is deferred to a planned follow-up comparison run (`docs/srs/training.md` OQ-3, not yet
+  implemented — no `peft` dependency exists in `pyproject.toml`).
+
   A real bug surfaced the first time `align_tokenizer_and_model` actually ran against a real
   model (via Evaluation's baseline-eval path in Colab, not Training itself yet): it resized
   embeddings to `tokenizer.vocab_size`, but real HF tokenizers leave `vocab_size` at the base

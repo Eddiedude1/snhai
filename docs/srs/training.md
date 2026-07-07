@@ -38,25 +38,24 @@ Out of scope: how training examples are generated or tokenized (see
   tokenization logic.
 - A3.2: The base model identifier and fine-tuning strategy remain configurable rather than
   hard-coded (FR-TR-1, NFR-TR-5), so the requirements below are still stated model-agnostically.
-  The concrete choice is **`Qwen/Qwen2.5-0.5B-Instruct`, fine-tuned with LoRA** (full rationale:
-  `model_selection.md`) — selected for its Apache 2.0 license, ~0.5B size (fits a free-tier
-  Colab T4 without quantization), strong existing structured-I/O/JSON behavior, and
-  proportionality to a 10-rule single-domain task (see §7, OQ-1, resolved).
+  The concrete choice is **`Qwen/Qwen2.5-0.5B-Instruct`, fully fine-tuned** (all parameters
+  trainable, no LoRA/PEFT) — selected for its Apache 2.0 license, ~0.5B size (fits a free-tier
+  Colab T4 without quantization or parameter-efficient tricks), strong existing structured-I/O/
+  JSON behavior, and proportionality to a 10-rule single-domain task (see §7, OQ-1, resolved).
+  A LoRA fine-tune of the same base model, as a comparison run, is a planned follow-up (not yet
+  implemented — no `peft` dependency or `LoraConfig` exists in this codebase).
 - A3.3: The base model's tokenizer SHALL be extended with the special-token set recorded in
   the data card, and the model's token embeddings resized accordingly, before training begins
   — otherwise special tokens (e.g. `<|decision|>`) would map to the tokenizer's default unknown
-  token and be unlearnable. Because Qwen2.5-0.5B ties input and output embeddings, and LoRA
-  freezes the base model by default, resizing alone is not sufficient: `embed_tokens` and
-  `lm_head` SHALL be added to the LoRA config's `modules_to_save` (fully fine-tuned, not
-  LoRA-adapted) so the newly added token rows actually receive gradient updates, rather than
-  remaining at their random initialization. `align_tokenizer_and_model` resizes to
-  `len(tokenizer)`, not `tokenizer.vocab_size`: real HF tokenizers leave `vocab_size` at the
-  base size after `add_special_tokens` and only reflect added tokens via `__len__`, so resizing
-  to `vocab_size` would silently leave the embedding table too small and the newly added
-  token ids out of range — surfaced as a CUDA device-side assert (embedding index
-  out-of-bounds) the first time this was run against a real model in Colab, since the unit
-  test suite's `FakeTokenizer` originally (incorrectly) mutated `vocab_size` itself and so
-  didn't catch the discrepancy.
+  token and be unlearnable. Because this is a full fine-tune (nothing frozen), the newly added
+  token rows receive gradient updates like any other parameter — no LoRA `modules_to_save`
+  carve-out is needed. `align_tokenizer_and_model` resizes to `len(tokenizer)`, not
+  `tokenizer.vocab_size`: real HF tokenizers leave `vocab_size` at the base size after
+  `add_special_tokens` and only reflect added tokens via `__len__`, so resizing to `vocab_size`
+  would silently leave the embedding table too small and the newly added token ids out of
+  range — surfaced as a CUDA device-side assert (embedding index out-of-bounds) the first time
+  this was run against a real model in Colab, since the unit test suite's `FakeTokenizer`
+  originally (incorrectly) mutated `vocab_size` itself and so didn't catch the discrepancy.
 - A3.4: PyTorch is assumed as the training framework (the more idiomatic path through Hugging
   Face Transformers); TensorFlow is not pursued unless a specific reason emerges to prefer it.
 - A3.5: Reproducibility SHALL be provided by a local RNG instance created via a `make_rng(seed)`
@@ -108,9 +107,18 @@ Out of scope: how training examples are generated or tokenized (see
 
 ## 7. Open Questions / Risks
 
-- OQ-1 (resolved — A3.2): base model is `Qwen/Qwen2.5-0.5B-Instruct`, fine-tuned via LoRA
-  with `embed_tokens`/`lm_head` in `modules_to_save` to keep new special tokens learnable
-  despite tied embeddings (A3.3). Optimizer/loss/hyperparameter rationale (NFR-TR-4) is not
-  yet documented — still open.
+- OQ-1 (resolved — A3.2): base model is `Qwen/Qwen2.5-0.5B-Instruct`, fully fine-tuned (all
+  parameters trainable). Full fine-tuning was chosen over LoRA for the first training run
+  because, at this model's scale, the tied embedding table is already ~28% of total parameters
+  and must be fully trainable regardless (to learn the new special tokens), so LoRA's usual
+  parameter/memory savings are far more modest here than on larger models; full fine-tuning of
+  a 0.5B model also comfortably fits a free-tier Colab T4's memory/time budget for this
+  dataset's size (see training run logs). A LoRA comparison run is a planned follow-up (OQ-3).
+  Optimizer/loss/hyperparameter rationale (NFR-TR-4) is documented in `config.json`'s
+  `training` section and this file's assumptions.
+- OQ-3: Add a real LoRA fine-tune (via `peft`, `LoraConfig` with `embed_tokens`/`lm_head` in
+  `modules_to_save` per the tied-embeddings reasoning above) as a second training run, to
+  compare against the full fine-tune on accuracy/rule-citation metrics and trainable-parameter/
+  memory footprint. Not yet implemented.
 - OQ-2: PyTorch vs. TensorFlow — assumed PyTorch (A3.4); revisit only if a specific reason to
   prefer TensorFlow emerges.

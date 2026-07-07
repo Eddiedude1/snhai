@@ -26,10 +26,19 @@ from snhai.config import load_config
 # --- FR-TR-1: base model loading by configurable identifier ----------------------------------
 
 
+def _resolve_device() -> str:
+    import torch
+
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 def _default_model_loader(model_id: str):
     from transformers import AutoModelForCausalLM
 
-    return AutoModelForCausalLM.from_pretrained(model_id)
+    # from_pretrained() loads onto CPU by default regardless of GPU availability; without this,
+    # a Colab T4 would sit idle while training silently ran on CPU.
+    model = AutoModelForCausalLM.from_pretrained(model_id)
+    return model.to(_resolve_device())
 
 
 def _default_tokenizer_loader(model_id: str):
@@ -226,15 +235,19 @@ def make_rng(seed: int) -> random.Random:
 # --- CLI orchestration (not exercised by the unit test suite) ---------------------------------
 
 
-def _batches(examples: list[dict], batch_size: int, rng: random.Random):
+def _batches(
+    examples: list[dict], batch_size: int, rng: random.Random, device: str = "cpu"
+):
     import torch
 
     order = list(range(len(examples)))
     rng.shuffle(order)
     for start in range(0, len(order), batch_size):
         chunk = [examples[i] for i in order[start : start + batch_size]]
-        input_ids = torch.tensor([e["input_ids"] for e in chunk])
-        attention_mask = torch.tensor([e["attention_mask"] for e in chunk])
+        input_ids = torch.tensor([e["input_ids"] for e in chunk], device=device)
+        attention_mask = torch.tensor(
+            [e["attention_mask"] for e in chunk], device=device
+        )
         yield {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -256,6 +269,7 @@ def train_model(
 ) -> None:
     checkpoint_dir = Path(checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    device = str(next(model.parameters()).device)
     optimizer = get_optimizer_constructor(config.optimizer_name)(
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
     )
@@ -271,17 +285,23 @@ def train_model(
 
     val_loss_by_step: dict[int, float] = {}
     for epoch in range(start_epoch, config.max_epochs):
-        for batch in _batches(train_examples, config.batch_size, rng):
+        for batch in _batches(train_examples, config.batch_size, rng, device=device):
             train_loss = training_step(model, batch, optimizer)
             step += 1
 
             val_loss = None
             if step % config.eval_every_n_steps == 0:
-                val_batches = list(_batches(val_examples, config.batch_size, rng))
+                val_batches = list(
+                    _batches(val_examples, config.batch_size, rng, device=device)
+                )
                 val_loss = evaluate(model, val_batches)
                 val_loss_by_step[step] = val_loss
 
             log_metrics(log_path, step=step, train_loss=train_loss, val_loss=val_loss)
+
+            if step == 1 or step % 10 == 0 or val_loss is not None:
+                suffix = f" val_loss={val_loss:.4f}" if val_loss is not None else ""
+                print(f"epoch {epoch} step {step}: train_loss={train_loss:.4f}{suffix}")
 
             if step % config.checkpoint_every_n_steps == 0:
                 save_checkpoint(
@@ -391,6 +411,7 @@ def main(argv: list[str] | None = None) -> None:
 
     model, tokenizer = load_base_model(args.model_id)
     align_tokenizer_and_model(model, tokenizer, data_card["special_tokens"])
+    print(f"Training on device: {next(model.parameters()).device}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     train_model(

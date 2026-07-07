@@ -147,6 +147,22 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   `checkpoint.json`), which serializes both real tensor state dicts and the unit test suite's
   plain-dict `FakeModel`/`FakeOptimizer` doubles generically, without this module needing a hard
   `torch` import to do it. `uv run pytest tests/test_training.py` still green (18 passed).
+
+  A fourth real gap, caught while the user was mid-run and asked how to confirm the Colab T4
+  was actually being used: neither `_default_model_loader` nor `_batches` ever placed anything
+  on a GPU device. `AutoModelForCausalLM.from_pretrained` loads onto CPU regardless of GPU
+  availability, and `_batches`'s `torch.tensor(...)` calls had no `device=` at all — so the
+  training run in progress was almost certainly running entirely on CPU despite the allocated
+  T4, which also explains its slowness. Fixed by adding `_resolve_device()` (`cuda` if
+  available, else `cpu`), moving the loaded model there in `_default_model_loader`, and
+  threading a `device` parameter through `_batches`/`train_model` (inferred from
+  `next(model.parameters()).device`, so it always matches wherever the model actually is).
+  `main()` now also prints the resolved device and periodic per-step train/val loss, since the
+  training loop previously had zero stdout output for its whole duration (only file-logged via
+  `log_metrics`), which was indistinguishable from a hang. None of `_batches`/`train_model`/
+  `main` are exercised by the unit test suite (real-transformers-only CLI orchestration, per
+  this file's existing note), so this needed no test changes; `uv run pytest` still green (66
+  passed).
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.

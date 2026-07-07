@@ -138,6 +138,15 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   it; fixed to `__call__(self, **kwargs)` to mirror real HF model call semantics, and
   `uv run pytest tests/test_training.py` still green (18 passed) since no test asserts on the
   double's argument-passing convention itself.
+
+  A third real bug was caught by inspection before it could crash the same Colab run:
+  `save_checkpoint` serialized the checkpoint payload with `json.dumps`, but a real model's
+  `state_dict()` holds `torch.Tensor` values, which `json` cannot serialize — this would have
+  thrown at the very first checkpoint (`config.json`'s `checkpoint_every_n_steps=50`). Fixed by
+  switching `save_checkpoint`/`load_checkpoint` to `pickle` (`checkpoint.pkl`, not
+  `checkpoint.json`), which serializes both real tensor state dicts and the unit test suite's
+  plain-dict `FakeModel`/`FakeOptimizer` doubles generically, without this module needing a hard
+  `torch` import to do it. `uv run pytest tests/test_training.py` still green (18 passed).
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.

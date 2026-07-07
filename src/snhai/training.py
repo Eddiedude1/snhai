@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pickle
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -167,14 +168,17 @@ def save_checkpoint(model, optimizer, step: int, epoch: int, path: str | Path) -
         "model_state": model.state_dict(),
         "optimizer_state": optimizer.state_dict(),
     }
-    (path / "checkpoint.json").write_text(json.dumps(payload))
+    # pickle, not json: a real model/optimizer state_dict() holds torch.Tensor values, which
+    # json.dumps cannot serialize. pickle handles both real tensors and the fake doubles' plain
+    # dicts generically, without this module needing a hard torch import to do it.
+    (path / "checkpoint.pkl").write_bytes(pickle.dumps(payload))
 
 
 def load_checkpoint(path: str | Path) -> Checkpoint:
-    checkpoint_file = Path(path) / "checkpoint.json"
+    checkpoint_file = Path(path) / "checkpoint.pkl"
     if not checkpoint_file.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
-    payload = json.loads(checkpoint_file.read_text())
+    payload = pickle.loads(checkpoint_file.read_bytes())
     return Checkpoint(
         step=payload["step"],
         epoch=payload["epoch"],

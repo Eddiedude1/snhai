@@ -22,11 +22,10 @@ once (including exact-threshold cases) to build the 14-example held-out test set
 harder than the training distribution, to stress-test generalization rather than measure
 memorization.
 
-Tokenization uses the real base model's tokenizer (not a toy whitespace tokenizer), extended
-with the special tokens above. `max_seq_len=256` was chosen empirically, not guessed:
-`scripts/measure_token_lengths.py` tokenized the actual rendered profile pool with the real
-tokenizer and found a true max of 177 tokens (train/val) / 142 (edge cases) — comfortably under
-256 with zero truncation.
+Tokenization uses the real base model's tokenizer, extended with the special tokens above.
+`max_seq_len=256` was chosen empirically, not guessed: `scripts/measure_token_lengths.py`
+tokenized the actual rendered profile pool with the real tokenizer and found a true max of 177
+tokens (train/val) / 142 (edge cases) — comfortably under 256 with zero truncation.
 
 **Model Selection and Training.** Base model: `Qwen/Qwen2.5-0.5B-Instruct` — Apache 2.0
 licensed, ~0.5B parameters (fits a free-tier Colab T4 without quantization), and proportional to

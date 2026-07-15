@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from pydantic import BaseModel, ConfigDict, field_validator
+
 from snhai.config import load_config
 
 # --- FR-TR-1: base model loading by configurable identifier ----------------------------------
@@ -233,6 +235,47 @@ def make_rng(seed: int) -> random.Random:
 
 
 # --- CLI orchestration (not exercised by the unit test suite) ---------------------------------
+#
+# TrainingSettings is a typed view of config.json's `training` section (IR-TR-4), replacing
+# the old `stage_config.get(key, TrainingConfig.field)` bridging in main() with one typo-safe
+# construction: extra="forbid" means a misspelled config.json key (e.g. "laerning_rate") raises
+# a ValidationError at load time instead of silently falling back to its default. This is
+# distinct from TrainingConfig (used by train_model, above): TrainingConfig only models
+# hyperparameters and stays pydantic/config-file-agnostic so tests/test_training.py can keep
+# constructing it directly with plain doubles. TrainingSettings additionally owns the run-level
+# fields (model_id, dataset_dir, output_dir, seed, resume_from) that config.json's `training`
+# section also carries, so this one model can legitimately forbid unknown keys across the whole
+# section without misclassifying real config as "extra".
+
+
+class TrainingSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    dataset_dir: Path = Path("data")
+    output_dir: Path = Path("runs/training")
+    seed: int = 42
+    resume_from: Path | None = None
+
+    learning_rate: float = TrainingConfig.learning_rate
+    batch_size: int = TrainingConfig.batch_size
+    max_epochs: int = TrainingConfig.max_epochs
+    optimizer_name: str = TrainingConfig.optimizer_name
+    weight_decay: float = TrainingConfig.weight_decay
+    warmup_steps: int = TrainingConfig.warmup_steps
+    eval_every_n_steps: int = TrainingConfig.eval_every_n_steps
+    checkpoint_every_n_steps: int = TrainingConfig.checkpoint_every_n_steps
+
+    @field_validator("optimizer_name")
+    @classmethod
+    def _validate_optimizer_name(cls, v: str) -> str:
+        # Checked against OPTIMIZER_REGISTRY itself (NFR-TR-5), not a hardcoded Literal, so this
+        # can't drift out of sync with the registry the way a duplicated literal list could.
+        if v not in OPTIMIZER_REGISTRY:
+            raise ValueError(
+                f"Unknown optimizer {v!r}; available: {sorted(OPTIMIZER_REGISTRY)}"
+            )
+        return v
 
 
 def _batches(
@@ -331,72 +374,31 @@ def main(argv: list[str] | None = None) -> None:
     pre_parser.add_argument("--config", type=Path, default=Path("config.json"))
     pre_args, remaining_argv = pre_parser.parse_known_args(argv)
     stage_config = load_config(pre_args.config, "training")
+    # Typo-safe: an unrecognized key in config.json's `training` section (e.g. a misspelled
+    # "laerning_rate") raises here instead of silently being ignored.
+    settings = TrainingSettings(**stage_config)
 
     # Phase 2: full parser, defaults layered as config.json < CLI flags (A3.6, IR-TR-4).
     parser = argparse.ArgumentParser(description=__doc__, parents=[pre_parser])
+    parser.add_argument("--model-id", type=str, default=settings.model_id)
+    parser.add_argument("--dataset-dir", type=Path, default=settings.dataset_dir)
+    parser.add_argument("--output-dir", type=Path, default=settings.output_dir)
+    parser.add_argument("--seed", type=int, default=settings.seed)
+    parser.add_argument("--learning-rate", type=float, default=settings.learning_rate)
+    parser.add_argument("--batch-size", type=int, default=settings.batch_size)
+    parser.add_argument("--max-epochs", type=int, default=settings.max_epochs)
+    parser.add_argument("--optimizer-name", type=str, default=settings.optimizer_name)
+    parser.add_argument("--weight-decay", type=float, default=settings.weight_decay)
+    parser.add_argument("--warmup-steps", type=int, default=settings.warmup_steps)
     parser.add_argument(
-        "--model-id",
-        type=str,
-        default=stage_config.get("model_id", "Qwen/Qwen2.5-0.5B-Instruct"),
-    )
-    parser.add_argument(
-        "--dataset-dir",
-        type=Path,
-        default=Path(stage_config.get("dataset_dir", "data")),
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path(stage_config.get("output_dir", "runs/training")),
-    )
-    parser.add_argument("--seed", type=int, default=stage_config.get("seed", 42))
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=stage_config.get("learning_rate", TrainingConfig.learning_rate),
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=stage_config.get("batch_size", TrainingConfig.batch_size),
-    )
-    parser.add_argument(
-        "--max-epochs",
-        type=int,
-        default=stage_config.get("max_epochs", TrainingConfig.max_epochs),
-    )
-    parser.add_argument(
-        "--optimizer-name",
-        type=str,
-        default=stage_config.get("optimizer_name", TrainingConfig.optimizer_name),
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=stage_config.get("weight_decay", TrainingConfig.weight_decay),
-    )
-    parser.add_argument(
-        "--warmup-steps",
-        type=int,
-        default=stage_config.get("warmup_steps", TrainingConfig.warmup_steps),
-    )
-    parser.add_argument(
-        "--eval-every-n-steps",
-        type=int,
-        default=stage_config.get(
-            "eval_every_n_steps", TrainingConfig.eval_every_n_steps
-        ),
+        "--eval-every-n-steps", type=int, default=settings.eval_every_n_steps
     )
     parser.add_argument(
         "--checkpoint-every-n-steps",
         type=int,
-        default=stage_config.get(
-            "checkpoint_every_n_steps", TrainingConfig.checkpoint_every_n_steps
-        ),
+        default=settings.checkpoint_every_n_steps,
     )
-    parser.add_argument(
-        "--resume-from", type=Path, default=stage_config.get("resume_from")
-    )
+    parser.add_argument("--resume-from", type=Path, default=settings.resume_from)
     args = parser.parse_args(remaining_argv)
 
     config = TrainingConfig(

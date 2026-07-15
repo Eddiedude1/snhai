@@ -182,6 +182,22 @@ spec's requirement IDs, then (later) the implementation. Status per stage:
   already reported in this file and `REPORT.md`); future fresh runs will produce a clean log
   automatically. `uv run pytest` still green (66 passed), since `train_model` isn't exercised by
   the unit test suite (same real-transformers-only carve-out as above).
+
+  `main()`'s config-loading was later hardened by replacing the manual `stage_config.get(key,
+  TrainingConfig.field)` bridging with a typed `TrainingSettings` (`pydantic.BaseModel`,
+  `extra="forbid"`) that owns the *entire* `training` section of `config.json` — both
+  hyperparameters and the run-level fields (`model_id`/`dataset_dir`/`output_dir`/`seed`/
+  `resume_from`) that section also carries. A misspelled or unrecognized key (e.g. a typo'd
+  `learning_rate`) now raises a `ValidationError` at startup instead of silently falling back to
+  its built-in default, and `optimizer_name` is checked against `OPTIMIZER_REGISTRY` itself via a
+  `field_validator` rather than a hardcoded literal list, so it can't drift out of sync with the
+  registry. `TrainingConfig` (the dataclass `train_model` actually consumes) and every function
+  below it in the module are unchanged — `TrainingSettings` only replaces how `main()` resolves
+  `config.json` into argparse defaults — so `tests/test_training.py` needed no edits and stayed
+  green (18 passed). This made `pydantic` a genuine top-level runtime dependency, unlike
+  `torch`/`transformers`: it installs cleanly on this dev machine (no Intel-Mac wheel gap), so
+  its import in `training.py` is a normal top-level import rather than the lazy,
+  inside-a-function pattern used for `torch`/`transformers`.
 - **Evaluation**: spec (`docs/srs/evaluation.md`), test suite (`tests/test_evaluation.py`, 18
   tests), and implementation (`src/snhai/evaluation.py`) are done; `uv run pytest tests/test_evaluation.py`
   is green (18 passed) and `uv run ruff check .` / `uv run ruff format --check .` are clean.
@@ -292,10 +308,14 @@ uv run ruff check .                     # lint
 uv run ruff format .                    # auto-format (check with `--check` first)
 ```
 
-Runtime dependencies are `ipykernel`, `transformers` (`transformers` is needed by Data
+Runtime dependencies are `ipykernel`, `pydantic`, `transformers` (`transformers` is needed by Data
 Preparation's `main()` real-tokenizer path — see the Data Preparation note above — and by
 Training's/Evaluation's default model/tokenizer loaders; none of the three stages' unit test
-suites import it, since all of them inject their own fake doubles); dev dependencies are
+suites import it, since all of them inject their own fake doubles). `pydantic` backs Training's
+`TrainingSettings` (see the Training note above) and, unlike `transformers`/`torch`, is imported
+top-level rather than lazily, since it installs on every platform this project runs on; it *is*
+imported by `tests/test_training.py` transitively (via `import snhai.training`), so it's a real
+test-suite dependency, not one of the lazily-imported real-model-only ones. Dev dependencies are
 `jupyter`, `pytest`, `ruff`. `pandas` and `seaborn` were declared as runtime dependencies from
 the very first commit but never actually imported anywhere in `src/`/`tests/`/`scripts/` —
 leftover from pre-spec-first exploratory notebook work (see the `.ipynb_checkpoints` data-card

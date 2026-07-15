@@ -54,7 +54,7 @@ uv run ruff check .                     # lint
 uv run ruff format --check .            # format check
 ```
 
-Runtime dependencies: `ipykernel`, `transformers`. Dev dependencies:
+Runtime dependencies: `ipykernel`, `pydantic`, `transformers`. Dev dependencies:
 `jupyter`, `pytest`, `ruff`. **None of the three stages' unit test suites require `torch`** —
 they're tested against fake model/tokenizer/optimizer doubles that duck-type the relevant
 Hugging Face/PyTorch interfaces, so `uv sync && uv run pytest` works on any machine, including
@@ -86,9 +86,11 @@ Google Colab against a free-tier T4 GPU:
 
 ```bash
 # In a Colab notebook, after cloning this repo and cd'ing into it:
-pip install -q -e . --no-deps && pip install -q "transformers>=5.13.0"
+pip install -q -e . --no-deps && pip install -q "transformers>=5.13.0" "pydantic>=2.13.4"
 # --no-deps avoids upgrading Colab's own pinned ipykernel, which this repo's
 # pyproject.toml declares but neither of these two stages actually imports at runtime.
+# pydantic must still be installed explicitly here: unlike transformers/torch it's a
+# top-level (non-lazy) import in training.py, so --no-deps would otherwise skip it.
 
 python -m snhai.training      # writes runs/training/final_model + runs/training/metrics.log
 python -m snhai.evaluation    # writes runs/evaluation/eval_report.json
@@ -118,6 +120,10 @@ All three stages read defaults from `config.json`'s matching top-level section
 Precedence: built-in script defaults < `config.json`'s section < explicit CLI flags. This is the
 single place to change the base model, hyperparameters, dataset size, or file paths without
 touching code.
+
+Training's section is additionally validated against a typed model (`TrainingSettings` in
+`src/snhai/training.py`, `pydantic`, `extra="forbid"`), so a misspelled key or an invalid
+`optimizer_name` fails fast at startup instead of silently falling back to a default.
 
 ## Key files
 

@@ -301,14 +301,14 @@ uv sync                                 # install deps + editable-install the sn
 uv run python -m snhai.data_preparation # run a stage (also: snhai.training, snhai.evaluation)
 uv add <package>                        # add a new dependency (updates pyproject.toml + uv.lock)
 uv add --dev <package>                   # add a dev-only dependency (e.g. test/lint tooling)
-uv run jupyter lab                      # the `dev` group includes jupyter; ipykernel is also a dependency
+uv run jupyter lab                      # the `dev` group includes jupyter, which pulls in ipykernel transitively
 uv run pytest                           # run the full test suite
 uv run pytest tests/test_data_preparation.py -q   # run one stage's tests
 uv run ruff check .                     # lint
 uv run ruff format .                    # auto-format (check with `--check` first)
 ```
 
-Runtime dependencies are `ipykernel`, `pydantic`, `transformers` (`transformers` is needed by Data
+Runtime dependencies are `pydantic`, `transformers` (`transformers` is needed by Data
 Preparation's `main()` real-tokenizer path — see the Data Preparation note above — and by
 Training's/Evaluation's default model/tokenizer loaders; none of the three stages' unit test
 suites import it, since all of them inject their own fake doubles). `pydantic` backs Training's
@@ -316,7 +316,10 @@ suites import it, since all of them inject their own fake doubles). `pydantic` b
 top-level rather than lazily, since it installs on every platform this project runs on; it *is*
 imported by `tests/test_training.py` transitively (via `import snhai.training`), so it's a real
 test-suite dependency, not one of the lazily-imported real-model-only ones. Dev dependencies are
-`jupyter`, `pytest`, `ruff`. `pandas` and `seaborn` were declared as runtime dependencies from
+`jupyter`, `pytest`, `ruff`. `ipykernel` was likewise dropped from the runtime dependency
+list — it was only ever needed for ad hoc notebook exploration, not by any script in `src/`, and
+`jupyter` (a dev dependency) already pulls it in transitively, so an explicit top-level entry was
+redundant. `pandas` and `seaborn` were declared as runtime dependencies from
 the very first commit but never actually imported anywhere in `src/`/`tests/`/`scripts/` —
 leftover from pre-spec-first exploratory notebook work (see the `.ipynb_checkpoints` data-card
 note under Key data files) — and were removed, along with the 9 transitive packages

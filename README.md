@@ -54,8 +54,9 @@ uv run ruff check .                     # lint
 uv run ruff format --check .            # format check
 ```
 
-Runtime dependencies: `ipykernel`, `pydantic`, `transformers`. Dev dependencies:
-`jupyter`, `pytest`, `ruff`. **None of the three stages' unit test suites require `torch`** —
+Runtime dependencies: `pydantic`, `transformers`. Dev dependencies: `jupyter` (which pulls in
+`ipykernel` transitively, for notebook exploration), `pytest`, `ruff`. **None of the three
+stages' unit test suites require `torch`** —
 they're tested against fake model/tokenizer/optimizer doubles that duck-type the relevant
 Hugging Face/PyTorch interfaces, so `uv sync && uv run pytest` works on any machine, including
 one where `torch` isn't installable at all (this was developed on an Intel Mac, where PyPI no
@@ -87,10 +88,9 @@ Google Colab against a free-tier T4 GPU:
 ```bash
 # In a Colab notebook, after cloning this repo and cd'ing into it:
 pip install -q -e . --no-deps && pip install -q "transformers>=5.13.0" "pydantic>=2.13.4"
-# --no-deps avoids upgrading Colab's own pinned ipykernel, which this repo's
-# pyproject.toml declares but neither of these two stages actually imports at runtime.
-# pydantic must still be installed explicitly here: unlike transformers/torch it's a
-# top-level (non-lazy) import in training.py, so --no-deps would otherwise skip it.
+# --no-deps skips pip resolving this package's declared dependencies against Colab's
+# already-installed packages (keeps the install fast); both real runtime deps
+# (transformers, pydantic) are then installed explicitly on the line above instead.
 
 python -m snhai.training      # writes runs/training/final_model + runs/training/metrics.log
 python -m snhai.evaluation    # writes runs/evaluation/eval_report.json

@@ -1886,7 +1886,6 @@ name = "snhai"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ipykernel" },
     { name = "pydantic" },
     { name = "transformers" },
 ]
@@ -1900,7 +1899,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "transformers", specifier = ">=5.13.0" },
 ]
